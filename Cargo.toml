@@ -8,6 +8,6 @@ chrono = { version = "0.4.40", features = ["serde"] }
 sled = "0.34.7"
 serde = { version = "1.0.219", features = ["derive"] }
 toml = "0.8.20"
-bincode = "2.0.1"
+bincode = "1.3.3"
 typed-sled = "=0.2.3"
 dbstruct = "0.6.0"
