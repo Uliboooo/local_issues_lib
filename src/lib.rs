@@ -87,6 +87,7 @@ impl Project {
         db::save(loaded_db)?;
         Ok(())
     }
+
     fn insert(&mut self, new_issue: Issue) {
         self.body.push(new_issue);
     }
@@ -106,6 +107,7 @@ impl Project {
             .filter(|f| f.title == *target_title.as_ref())
             .cloned()
             .collect();
+
         // 完全一致がない場合は、部分一致で埋める
         if found_issues.is_empty() {
             found_issues = loaded_db
@@ -137,7 +139,8 @@ pub enum Status {
     Open,
     Closed,
     Archived,
-    Deleted,
+    /// count of delted this issue
+    Deleted(i32),
 }
 
 #[cfg(test)]
