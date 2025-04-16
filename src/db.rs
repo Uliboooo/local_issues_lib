@@ -7,7 +7,8 @@ use std::{
 use crate::{Error, Project};
 
 pub fn save(body: Project) -> Result<(), Error> {
-    let se = toml::to_string(&body).map_err(|_| Error::SomeError)?;
+    let se = serde_json::to_string(&body).map_err(Error::SerdeError)?;
+    // let se = toml::to_string(&body).map_err(|_| Error::SomeError)?;
     let mut f = fs::OpenOptions::new()
         .read(true)
         .truncate(false)
@@ -28,9 +29,12 @@ pub fn load_db<P: AsRef<Path>>(path: &P) -> Result<Project, Error> {
         .create(true)
         .open(path.as_ref())
         .map_err(Error::IoError)?;
+
     let mut content = String::new();
     f.read_to_string(&mut content).map_err(Error::IoError)?;
-    let se: Project = toml::from_str(&content).map_err(|_| Error::SomeError)?;
+
+    // let se: Project = toml::from_str(&content).map_err(|_| Error::SomeError)?;
+    let se: Project = serde_json::from_str(&content).map_err(Error::SerdeError)?;
     Ok(se)
 }
 

@@ -1,4 +1,5 @@
 //! Example
+//! 追記機能を導入予定
 
 mod db;
 
@@ -18,6 +19,7 @@ pub enum Error {
     SomeError,
     BinError(bincode::Error),
     IoError(io::Error),
+    SerdeError(serde_json::Error),
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
@@ -64,13 +66,13 @@ impl Project {
             if db_path.exists() {
                 return db::load_db(&path); // TODO: これで失敗している場合の処理も後で
             } else {
-                let a = Project {
+                let void_body = Project {
                     project_name: title.as_ref().to_string(),
                     work_path: path.as_ref().to_path_buf(),
                     db_path,
                     body: Vec::new(),
                 };
-                db::save(a)?;
+                db::save(void_body)?;
             }
             db::load_db(&path)
         }?;
@@ -86,7 +88,7 @@ impl Project {
         self.body.push(new_issue);
     }
 
-    pub fn get<S: AsRef<str>>(
+    pub fn get_from_title<S: AsRef<str>>(
         &self,
         target_title: S,
     ) -> Result<Option<(MatchType, Vec<Issue>)>, Error> {
@@ -136,5 +138,4 @@ pub enum Status {
 }
 
 #[cfg(test)]
-mod tests {
-}
+mod tests {}
