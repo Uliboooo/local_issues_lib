@@ -1,6 +1,6 @@
 //! Example
 //! 追記機能を導入予定
-//!
+//! インタラクティブモードを導入予定
 //!
 // TODO: Id structの導入はやめ。jsonなら1s未満で数千件から数万件は処理できそうなのでそちらに頼る。1プロジェクトで数万件を超えるisuesは扱わないと想定するためÏ
 
@@ -26,14 +26,14 @@ pub enum Error {
     SerdeError(serde_json::Error),
 }
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, PartialOrd, Eq)]
 pub enum Status {
     #[default]
     Open,
     Closed,
     Archived,
     /// count of delted this issue
-    Deleted(i32),
+    MarkedAsDeleted(i32),
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
@@ -61,6 +61,42 @@ impl Issue {
             due_date,
             status,
             body_path: body_path.as_ref().to_path_buf(),
+        }
+    }
+
+    fn edit_title(&mut self, title: String) {
+        self.title = title
+    }
+
+    fn update_date(&mut self) {
+        self.updated_at = Local::now();
+    }
+
+    fn edit_due_date(&mut self, new_due: DateTime<Local>) {
+        self.due_date = Some(new_due);
+    }
+
+    fn edit_status(&mut self, new_status: Status) {
+        self.status = new_status;
+    }
+
+    /// if status is open, change to closed.if it is `MarkedAsDeleted`, reset count(default: 10).
+    fn update_status(&mut self) {
+        self.status = match self.status {
+            Status::Open => Status::Closed,
+            Status::Closed => Status::Archived,
+            Status::Archived => Status::MarkedAsDeleted(10),
+            Status::MarkedAsDeleted(_) => Status::MarkedAsDeleted(10),
+        };
+    }
+
+    fn edit_body_path(&mut self, new_path: PathBuf) {
+        self.body_path = new_path;
+    }
+
+    fn decrement_delete_count(&mut self) {
+        if let Status::MarkedAsDeleted(c) = self.status {
+            self.status = Status::MarkedAsDeleted(c - 1)
         }
     }
 }
