@@ -65,18 +65,22 @@ impl Issue {
         }
     }
 
+    /// edit title by arg title: String
     fn edit_title(&mut self, title: String) {
         self.title = title
     }
 
+    /// update `updated_at` by now time
     fn update_date(&mut self) {
         self.updated_at = Local::now();
     }
 
+    /// edit `due_date` by arg
     fn edit_due_date(&mut self, new_due: DateTime<Local>) {
         self.due_date = Some(new_due);
     }
 
+    /// edit status
     fn edit_status(&mut self, new_status: Status) {
         self.status = new_status;
     }
@@ -91,10 +95,12 @@ impl Issue {
         };
     }
 
+    /// edit body path
     fn edit_body_path(&mut self, new_path: PathBuf) {
         self.body_path = new_path;
     }
 
+    /// decrement delete flag count
     fn decrement_delete_count(&mut self) {
         if let Status::MarkedAsDeleted(c) = self.status {
             self.status = Status::MarkedAsDeleted(c - 1)
@@ -148,6 +154,7 @@ impl Project {
         self.body.push(new_issue);
     }
 
+    /// Return the issue struct(and match type(`Exact` or `Partial`)) that matches the argument title
     pub fn get_from_title<S: AsRef<str>>(
         &self,
         target_title: S,
@@ -183,20 +190,32 @@ impl Project {
         })
     }
 
-    /// add tags to self.tags from arg (`Vec<String>`)
+    /// add tags to self.tags from arg: `Vec<String>`
     pub fn add_tags(&mut self, new_tags: &mut Vec<String>) {
         self.tags.append(new_tags);
     }
 
-    /// remove tags from self.tags, by tag_names(`Vec<String>`)
+    /// remove tags from self.tags, by tag_names: `Vec<String>`
     pub fn remove_tag(&mut self, tag_names: Vec<String>) {
         // fがtag_namesに含まれている場合は削除される。
         self.tags.retain(|f| tag_names.iter().any(|t| t != f));
     }
 
-    /// return cloned current tags (`Vec<String>`)
+    /// return cloned current tags: `Vec<String>`
     pub fn get_tags(&mut self) -> Vec<String> {
         self.tags.clone()
+    }
+
+    /// incomplete
+    fn check_delete_flag(&mut self) -> i32 {
+        for i in &self.body {
+            if let Status::MarkedAsDeleted(c) = i.status {
+                if c == 0 {
+                    return 32;
+                }
+            }
+        }
+        todo!()
     }
 }
 
