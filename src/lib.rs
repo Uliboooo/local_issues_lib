@@ -1,6 +1,7 @@
-//! Example
-//! 追記機能を導入予定
-//! インタラクティブモードを導入予定
+//! ## Example
+//!
+//! - 追記機能を導入予定
+//! - インタラクティブモードを導入予定
 //!
 // TODO: Id structの導入はやめ。jsonなら1s未満で数千件から数万件は処理できそうなのでそちらに頼る。1プロジェクトで数万件を超えるisuesは扱わないと想定するためÏ
 
@@ -122,6 +123,7 @@ impl Project {
             if db_path.exists() {
                 return db::load_db(&path); // TODO: これで失敗している場合の処理も後で
             } else {
+                // like a new()
                 let void_body = Project {
                     project_name: title.as_ref().to_string(),
                     work_path: path.as_ref().to_path_buf(),
@@ -179,6 +181,22 @@ impl Project {
         } else {
             Some((match_type, found_issues))
         })
+    }
+
+    /// add tags to self.tags from arg (`Vec<String>`)
+    pub fn add_tags(&mut self, new_tags: &mut Vec<String>) {
+        self.tags.append(new_tags);
+    }
+
+    /// remove tags from self.tags, by tag_names(`Vec<String>`)
+    pub fn remove_tag(&mut self, tag_names: Vec<String>) {
+        // fがtag_namesに含まれている場合は削除される。
+        self.tags.retain(|f| tag_names.iter().any(|t| t != f));
+    }
+
+    /// return cloned current tags (`Vec<String>`)
+    pub fn get_tags(&mut self) -> Vec<String> {
+        self.tags.clone()
     }
 }
 
