@@ -1,7 +1,7 @@
 //! Example
 //! 追記機能を導入予定
-//! 
-//! 
+//!
+//!
 // TODO: Id structの導入はやめ。jsonなら1s未満で数千件から数万件は処理できそうなのでそちらに頼る。1プロジェクトで数万件を超えるisuesは扱わないと想定するためÏ
 
 mod db;
@@ -10,6 +10,7 @@ use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 // use sled::open;
 use std::{
+    fmt::Debug,
     io,
     path::{Path, PathBuf},
     str,
@@ -23,6 +24,16 @@ pub enum Error {
     BinError(bincode::Error),
     IoError(io::Error),
     SerdeError(serde_json::Error),
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub enum Status {
+    #[default]
+    Open,
+    Closed,
+    Archived,
+    /// count of delted this issue
+    Deleted(i32),
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
@@ -54,16 +65,22 @@ impl Issue {
     }
 }
 
+pub enum MatchType {
+    Exact,
+    Partial,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Project {
     pub project_name: String,
     pub work_path: PathBuf,
     pub db_path: PathBuf,
     pub body: Vec<Issue>,
+    pub tags: Vec<String>,
 }
 
 impl Project {
-    pub fn open<T: AsRef<str>, P: AsRef<Path>>(title: T, path: P) -> Result<Self, Error> {
+    pub fn open<S: AsRef<str>, P: AsRef<Path>>(title: S, path: P) -> Result<Self, Error> {
         let db_path = path.as_ref().join("db").with_extension("toml");
         let db = {
             if db_path.exists() {
@@ -74,6 +91,7 @@ impl Project {
                     work_path: path.as_ref().to_path_buf(),
                     db_path,
                     body: Vec::new(),
+                    tags: Vec::new(),
                 };
                 db::save(void_body)?;
             }
@@ -126,21 +144,6 @@ impl Project {
             Some((match_type, found_issues))
         })
     }
-}
-
-pub enum MatchType {
-    Exact,
-    Partial,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
-pub enum Status {
-    #[default]
-    Open,
-    Closed,
-    Archived,
-    /// count of delted this issue
-    Deleted(i32),
 }
 
 #[cfg(test)]
