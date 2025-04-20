@@ -8,7 +8,6 @@ use crate::{Error, Project};
 
 pub fn save(body: Project) -> Result<(), Error> {
     let se = serde_json::to_string(&body).map_err(Error::SerdeError)?;
-    // let se = toml::to_string(&body).map_err(|_| Error::SomeError)?;
     let mut f = load_file(&body.db_path)?;
     f.write_all(se.as_bytes()).map_err(Error::IoError)?;
     Ok(())
@@ -17,7 +16,6 @@ pub fn save(body: Project) -> Result<(), Error> {
 /// if path is'n exist, create a db file at path.
 pub fn load_db<P: AsRef<Path>>(path: &P) -> Result<Project, Error> {
     let mut f = load_file(&path.as_ref().to_path_buf())?;
-
     let mut content = String::new();
     f.read_to_string(&mut content).map_err(Error::IoError)?;
 

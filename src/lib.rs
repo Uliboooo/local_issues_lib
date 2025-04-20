@@ -11,6 +11,7 @@ use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 // use sled::open;
 use std::{
+    collections::HashMap,
     fmt::Debug,
     io,
     path::{Path, PathBuf},
@@ -19,10 +20,7 @@ use std::{
 
 #[derive(Debug)]
 pub enum Error {
-    DbError(sled::Error),
     DbNotFound,
-    SomeError,
-    BinError(bincode::Error),
     IoError(io::Error),
     SerdeError(serde_json::Error),
 }
@@ -31,10 +29,16 @@ pub enum Error {
 pub enum Status {
     #[default]
     Open,
-    Closed,
-    Archived,
+    Closed(Closed),
     /// count of delted this issue
     MarkedAsDeleted(i32),
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, PartialOrd, Eq)]
+pub enum Closed {
+    #[default]
+    Resolved,
+    NotResolved,
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
@@ -85,14 +89,39 @@ impl Issue {
         self.status = new_status;
     }
 
-    /// if status is open, change to closed.if it is `MarkedAsDeleted`, reset count(default: 10).
-    fn update_status(&mut self) {
-        self.status = match self.status {
-            Status::Open => Status::Closed,
-            Status::Closed => Status::Archived,
-            Status::Archived => Status::MarkedAsDeleted(10),
-            Status::MarkedAsDeleted(_) => Status::MarkedAsDeleted(10),
-        };
+    // /// if status is open, change to closed.if it is `MarkedAsDeleted`, reset count(default: 10).
+    // fn update_status(&mut self) {
+    //     self.status = match self.status {
+    //         Status::Open => Status::Closed(C),
+    //         Status::Closed => Status::Archived,
+    //         Status::Archived => Status::MarkedAsDeleted(10),
+    //         Status::MarkedAsDeleted(_) => Status::MarkedAsDeleted(10),
+    //     };
+    // }
+
+    fn will_be_deleted_after(&self) -> Option<i32> {
+        match self.status {
+            Status::MarkedAsDeleted(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    fn set_delete_count(&mut self, new_count: i32) -> Option<i32> {
+        match self.status {
+            Status::MarkedAsDeleted(_) => {
+                self.status = Status::MarkedAsDeleted(new_count);
+                if let Status::MarkedAsDeleted(c) = self.status {
+                    Some(c)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn reset_delete_count(&mut self) -> Option<i32> {
+        self.set_delete_count(10)
     }
 
     /// edit body path
@@ -113,12 +142,46 @@ pub enum MatchType {
     Partial,
 }
 
+pub trait ProjectTrait {
+    // manage paroject
+    fn open<S: AsRef<str>, P: AsRef<Path>>(title: S, path: P) -> Result<Project, Error>;
+    fn save(&self) -> Result<(), Error>;
+    // manage issues
+    /// when title exact match, return `Some(id: u64)`.
+    fn get_id_from_title<S: AsRef<str>>(&self, title: S) -> Option<u64>;
+    /// return ids(Vec<u64>) when matched status.
+    fn get_ids_from_status<S: AsRef<str>>(&self, status: Status) -> Option<Vec<u64>>;
+
+    /// add issue
+    fn add_issue(&self, new_issue: Issue) -> Result<(), Error>;
+    fn remove_issue_from_id(&mut self, id: u64);
+    fn pop_issue(&mut self, id: u64) -> Option<Issue>;
+
+    fn remove_issue<S: AsRef<str>>(&mut self, title: S) {
+        let id = self.get_id_from_title(title);
+        if let Some(f) = id {
+            self.remove_issue_from_id(f);
+        }
+    }
+
+    fn get_from_title<S: AsRef<str>>(&self, target_title: S) -> Result<Option<FetchedList>, Error>;
+    // manage tags
+    fn add_tags(&mut self, new_tags: &mut Vec<String>);
+    fn remove_tag(&mut self, tag_names: Vec<String>);
+    fn get_tags(&mut self) -> Vec<String>;
+    fn check_delete_flag(&mut self) -> i32;
+}
+
+pub type BodyData = HashMap<u64, Issue>;
+pub type FetchedList = (MatchType, BodyData);
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Project {
     pub project_name: String,
     pub work_path: PathBuf,
     pub db_path: PathBuf,
-    pub body: Vec<Issue>,
+    pub body: BodyData,
+    current_id: u64,
     pub tags: Vec<String>,
 }
 
@@ -130,11 +193,13 @@ impl Project {
                 return db::load_db(&path); // TODO: これで失敗している場合の処理も後で
             } else {
                 // like a new()
+                // when file isn't exist, init Project as id = 0
                 let void_body = Project {
                     project_name: title.as_ref().to_string(),
                     work_path: path.as_ref().to_path_buf(),
                     db_path,
-                    body: Vec::new(),
+                    body: HashMap::new(),
+                    current_id: 0,
                     tags: Vec::new(),
                 };
                 db::save(void_body)?;
@@ -143,7 +208,7 @@ impl Project {
         }?;
         Ok(db)
     }
-    pub fn add(&self, new_issue: Issue) -> Result<(), Error> {
+    pub fn add_issue(&self, new_issue: Issue) -> Result<(), Error> {
         let mut loaded_db = db::load_db(&self.db_path)?;
         loaded_db.insert(new_issue);
         db::save(loaded_db)?;
@@ -151,42 +216,51 @@ impl Project {
     }
 
     fn insert(&mut self, new_issue: Issue) {
-        self.body.push(new_issue);
+        self.body.insert(self.current_id + 1, new_issue);
     }
 
     /// Return the issue struct(and match type(`Exact` or `Partial`)) that matches the argument title
     pub fn get_from_title<S: AsRef<str>>(
         &self,
         target_title: S,
-    ) -> Result<Option<(MatchType, Vec<Issue>)>, Error> {
+    ) -> Result<Option<FetchedList>, Error> {
         let loaded_db = db::load_db(&self.db_path)?;
 
         let mut match_type = MatchType::Exact;
-        // TODO: mutを消せるように
-        // ブラケットで囲んでifで分岐すれば、おそらく束縛は1回で済む
-        let mut found_issues: Vec<Issue> = loaded_db
-            .body
-            .iter()
-            .filter(|f| f.title == *target_title.as_ref())
-            .cloned()
-            .collect();
 
-        // 完全一致がない場合は、部分一致で埋める
-        if found_issues.is_empty() {
-            found_issues = loaded_db
+        Ok({
+            let mut tmp = loaded_db
                 .body
                 .iter()
-                .filter(|f| f.title.contains(target_title.as_ref()))
-                .cloned()
-                .collect();
-            if !found_issues.is_empty() {
+                .filter_map(|f| {
+                    if f.1.title == target_title.as_ref() {
+                        Some((*f.0, f.1.clone()))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<HashMap<_, _>>();
+
+            // 完全一致がない場合
+            if tmp.is_empty() {
+                tmp = tmp
+                    .iter()
+                    .filter_map(|f| {
+                        if f.1.title.contains(target_title.as_ref()) {
+                            Some((*f.0, f.1.clone()))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
                 match_type = MatchType::Partial;
             }
-        };
-        Ok(if found_issues.is_empty() {
-            None
-        } else {
-            Some((match_type, found_issues))
+
+            if tmp.is_empty() {
+                None
+            } else {
+                Some(FetchedList::from((match_type, tmp)))
+            }
         })
     }
 
@@ -209,7 +283,7 @@ impl Project {
     /// incomplete
     fn check_delete_flag(&mut self) -> i32 {
         for i in &self.body {
-            if let Status::MarkedAsDeleted(c) = i.status {
+            if let Status::MarkedAsDeleted(c) = i.1.status {
                 if c == 0 {
                     return 32;
                 }
