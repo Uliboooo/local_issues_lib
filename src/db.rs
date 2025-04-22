@@ -6,6 +6,7 @@ use std::{
 
 use crate::{Error, Project};
 
+/// db_pathはbodyから勝手に読み取る
 pub fn save(body: Project) -> Result<(), Error> {
     let se = serde_json::to_string(&body).map_err(Error::SerdeError)?;
     let mut f = load_file(&body.db_path)?;
