@@ -1,7 +1,10 @@
 [package]
 name = "local_issues_lib"
+description = "the lib provide feature that local issue (like a github)"
 version = "0.1.0"
+authors = ["Uliboooo"]
 edition = "2024"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 chrono = { version = "0.4.40", features = ["serde"] }
