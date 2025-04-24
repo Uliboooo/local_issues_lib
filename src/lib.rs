@@ -1,9 +1,3 @@
-//! ## Example
-//!
-//! - 追記機能を導入予定
-//! - インタラクティブモードを導入予定
-//!
-
 mod db;
 
 use chrono::{DateTime, Local};
@@ -50,7 +44,6 @@ pub struct Issue {
     tags: Option<Vec<String>>,
     body_path: PathBuf,
 }
-
 impl Issue {
     pub fn new<S: AsRef<str>, P: AsRef<Path>>(
         title: S,
@@ -116,7 +109,7 @@ impl Issue {
     //     };
     // }
 
-    fn is_delete_marked(&self) -> bool {
+    pub fn is_delete_marked(&self) -> bool {
         matches!(self.status, Status::MarkedAsDelete(_))
     }
 
@@ -165,70 +158,15 @@ impl Issue {
     }
 }
 
-// pub trait ManageIssue {
-//     // manage paroject
-//     fn open<S: AsRef<str>, P: AsRef<Path>>(title: S, path: P) -> Result<Project, Error>;
-//     fn save(&self) -> Result<(), Error>;
-
-//     // manage issues
-//     /// when title exact match, return `Some(id: u64)`.
-//     fn get_id_from_title<S: AsRef<str>>(&self, title: S) -> Option<u64>;
-//     /// return ids(Vec<u64>) when matched status.
-//     fn get_ids_from_status<S: AsRef<str>>(&self, status: Status) -> Option<Vec<u64>>;
-
-//     fn search_ids_from_title<S: AsRef<str>>(&self, title: S) -> Option<>
-
-//     /// add issue
-//     fn remove_issue_from_id(&mut self, id: u64);
-//     fn pop_issue(&mut self, id: u64) -> Option<Issue>;
-
-//     /// add issue
-//     //save()で失敗する可能性があるため、Result<>.
-//     fn add_issue(&self, new_issue: Issue) -> Result<(), Error>;
-//     fn remove_issue<S: AsRef<str>>(&mut self, title: S) {
-//         let id = self.get_id_from_title(title);
-//         if let Some(f) = id {
-//             self.remove_issue_from_id(f);
-//         }
-//     }
-
-//     fn get_from_title<S: AsRef<str>>(&self, target_title: S) -> Result<Option<FetchedList>, Error>;
-// }
-
-// pub trait PowerManageIssue: ManageIssue {
-//     fn add_new_issue(&mut self, new_issue: Issue) -> Result<(), Error> {
-//         self.add_issue(new_issue)
-//     }
-//     fn remove_issue<S: AsRef<str>>(&mut self, title: S)
-//     {
-//         let id = self.get_id_from_title(title);
-//         if let Some(f) = id {
-//             self.remove_issue_from_id(f);
-//         }
-//     }
-// }
-
-// pub trait ManageTag {
-//     fn add_tags(&mut self, new_tags: &mut Vec<String>);
-//     fn remove_tag(&mut self, tag_names: Vec<String>);
-//     fn get_tags(&mut self) -> Vec<String>;
-//     fn check_delete_flag(&mut self) -> i32;
-// }
-
 pub enum MatchType {
     Exact,
     Partial,
     Not,
 }
-impl MatchType {
-    fn to_bool(&self) -> bool {
-        !matches!(self, MatchType::Not)
-    }
-}
 
 /// 部分一致の場合は、`Some(item or item2)`
 /// 0 is item、1 is item2
-fn compare_titles<S: AsRef<str> + Eq>(item: &S, item2: &S) -> (MatchType, Option<u8>) {
+pub fn compare_titles<S: AsRef<str> + Eq>(item: &S, item2: &S) -> (MatchType, Option<u8>) {
     if item.as_ref() == item2.as_ref() {
         (MatchType::Exact, None)
     } else if item.as_ref().contains(item2.as_ref()) {
@@ -254,6 +192,7 @@ pub struct Project {
     pub tags: Vec<String>,
 }
 
+/// Projectの操作
 impl Project {
     pub fn open<S: AsRef<str>, P: AsRef<Path>>(title: S, path: P) -> Result<Self, Error> {
         let db_path = path.as_ref().join("db").with_extension("toml");
@@ -278,9 +217,10 @@ impl Project {
         Ok(db)
     }
 
+    /// save data to file and purge deleted marked issues.
     pub fn save(mut self) -> Result<(), Error> {
-        self.purge_delete_mated_issues();
-        self.ready_delete_flags();
+        self.purge_delete_marked_issues();
+        self.decrement_delete_flag();
         db::save(self)?;
         Ok(())
     }
@@ -291,13 +231,6 @@ impl Project {
     pub fn save_without_delete(self) -> Result<(), Error> {
         db::save(self)?;
         Ok(())
-    }
-
-    /// current_idをインクリメントして挿入
-    fn insert(&mut self, new_issue: Issue) {
-        let new_id = self.current_id + 1;
-        self.body.insert(new_id, new_issue);
-        self.current_id = new_id;
     }
 
     /// タイトルが完全一致したidを`Option<Vec<u64>>`で返す
@@ -322,18 +255,49 @@ impl Project {
         if res.is_empty() { None } else { Some(res) }
     }
 
+    /// add tags to self.tags from arg: `Vec<String>`
+    pub fn add_tags(&mut self, new_tags: &mut Vec<String>) {
+        self.tags.append(new_tags);
+    }
+
+    /// remove tags from self.tags, by tag_names: `Vec<String>`
+    pub fn remove_tag(&mut self, tag_names: Vec<String>) {
+        // fがtag_namesに含まれている場合は削除される。
+        self.tags.retain(|f| tag_names.iter().any(|t| t != f));
+    }
+
+    /// return cloned current tags: `Vec<String>`
+    pub fn get_tags(&mut self) -> Vec<String> {
+        self.tags.clone()
+    }
+}
+
+/// issueの操作
+impl Project {
+    /// current_idをインクリメントして挿入
+    fn insert(&mut self, new_issue: Issue) {
+        let new_id = self.current_id + 1;
+        self.body.insert(new_id, new_issue);
+        self.current_id = new_id;
+    }
+
     /// Project.bodyに`new_issue`を追加(idのインクリメントは自動)
     pub fn add_issue(&mut self, new_issue: Issue) {
         self.insert(new_issue);
     }
 
-    // idを元にissueを削除
+    /// idを元にissueを削除
+    /// statusをdeleteにする訳ではないので注意
+    /// カウント付きで削除するには`edit_status()`で
+    /// ⚠️いつかはカウントにするかもしれない
+    /// 以下の`remove_issue_from_title()`や`remove_all_issue_from_title`も同様
     pub fn remove_issue(&mut self, id: &u64) -> Option<Issue> {
         self.body.remove(id)
     }
 
-    /// 完全一致が一つだった場合にのみ削除  
+    /// 完全一致が一つだった場合にのみ削除
     /// Noneの場合は削除した項目なし
+    /// ⚠️いつかはカウントにするかもしれない
     pub fn remove_issue_from_title<S: AsRef<str>>(&mut self, title: S) -> Option<Issue> {
         match self.get_id_with_exact(&title) {
             Some(i) => {
@@ -350,7 +314,8 @@ impl Project {
         }
     }
 
-    /// 完全一致した内容を全て削除  
+    /// 完全一致した内容を全て削除
+    /// ⚠️いつかはカウントにするかもしれない
     /// Noneの場合は削除した項目なし
     pub fn remove_all_issue_from_title<S: AsRef<str>>(&mut self, title: S) {
         let res = self.get_id_with_exact(&title);
@@ -361,64 +326,82 @@ impl Project {
         }
     }
 
-    /// idに対応するissueのタイトルを変更
-    pub fn edit_issue_title<S: AsRef<str>>(&mut self, id: u64, new_title: S) -> Option<()> {
-        self.body
-            .get_mut(&id)
-            .map(|issue| issue.edit_title(new_title.as_ref().to_string()))
-    }
-
     /// `new_tag<S>`をidを元にIssueへ追記
     pub fn add_issue_tag<S: AsRef<str>>(&mut self, id: u64, new_tag: Vec<S>) -> Option<()> {
-        self.body
-            .get_mut(&id)
-            .map(|issue| issue.add_tag(new_tag.iter().map(|f| f.as_ref().to_string()).collect()))
+        self.body.get_mut(&id).map(|issue| {
+            issue.update_date();
+            issue.add_tag(new_tag.iter().map(|f| f.as_ref().to_string()).collect())
+        })
     }
-
     /// idを元にissueのtagをクリア
     pub fn clear_issue_tag(&mut self, id: u64) -> Option<()> {
-        self.body.get_mut(&id).map(|is| is.clear_tags())
+        self.body.get_mut(&id).map(|issue| {
+            issue.update_date();
+            issue.clear_tags()
+        })
     }
 
-    /// idを元にissueのstatusを変更
-    pub fn edit_issue_status<S: AsRef<str>>(&mut self, id: u64, status: Status) -> Option<()> {
-        self.body.get_mut(&id).map(|issue| issue.status = status)
+    pub fn get_issue_tags(&self, id: u64) -> Option<Vec<String>> {
+        self.body.get(&id).and_then(|f| f.clone().get_tags())
+    }
+
+    /// idに対応するissueのタイトルを変更
+    pub fn edit_issue_title<S: AsRef<str>>(&mut self, id: u64, new_title: S) -> Option<()> {
+        self.body.get_mut(&id).map(|issue| {
+            issue.update_date();
+            issue.edit_title(new_title.as_ref().to_string())
+        })
+    }
+
+    pub fn edit_issue_status(&mut self, id: u64, new_status: Status) -> Option<()> {
+        self.body.get_mut(&id).map(|issue| {
+            issue.update_date();
+            issue.edit_status(new_status)
+        })
     }
 
     /// idを元にissueの`due date`を変更
     pub fn edit_issue_due(&mut self, id: u64, due: DateTime<Local>) -> Option<()> {
-        self.body.get_mut(&id).map(|f| f.edit_due_date(due))
+        self.body.get_mut(&id).map(|issue| {
+            issue.update_date();
+            issue.edit_due_date(due)
+        })
     }
 
-    /// add tags to self.tags from arg: `Vec<String>`
-    pub fn add_tags(&mut self, new_tags: &mut Vec<String>) {
-        self.tags.append(new_tags);
+    pub fn edit_body_path<P: AsRef<Path>>(&mut self, id: u64, new_path: P) -> Option<()> {
+        self.body.get_mut(&id).map(|issue| {
+            issue.update_date();
+            issue.edit_body_path(new_path.as_ref().to_path_buf())
+        })
     }
 
-    /// remove tags from self.tags, by tag_names: `Vec<String>`
-    pub fn remove_tag(&mut self, tag_names: Vec<String>) {
-        // fがtag_namesに含まれている場合は削除される。
-        self.tags.retain(|f| tag_names.iter().any(|t| t != f));
+    pub fn get_delete_flag_count(&self, id: u64) -> Option<i32> {
+        self.body
+            .get(&id)
+            .filter(|issue| issue.is_delete_marked())
+            .and_then(|issue| issue.delete_flag_count())
     }
 
-    /// return cloned current tags: `Vec<String>`
-    pub fn get_tags(&mut self) -> Vec<String> {
-        self.tags.clone()
+    pub fn reset_delete_flag_count(&mut self, id: u64) -> Option<()> {
+        self.body.get_mut(&id).map(|issue| {
+            issue.update_date();
+            issue.reset_delete_count();
+        })
     }
 
     /// デクリメント処理
-    fn ready_delete_flags(&mut self) {
+    fn decrement_delete_flag(&mut self) {
         for i in self.body.iter_mut() {
             i.1.decrement_delete_count();
         }
     }
 
-    /// incomplete
+    /// delete flagが0のissueのidをVecで返す
     fn delete_flaged_ids(&self) -> Option<Vec<u64>> {
         let delete_marked_ids = self
             .body
             .iter()
-            .filter(|f| f.1.is_delete_marked())
+            .filter(|f| f.1.delete_flag_is_zero())
             .map(|f| *f.0)
             .collect::<Vec<u64>>();
         if delete_marked_ids.is_empty() {
@@ -428,7 +411,9 @@ impl Project {
         }
     }
 
-    fn purge_delete_mated_issues(&mut self) -> Option<()> {
+    /// delete flagが0のissueを削除する
+    /// idの順は変更なし
+    fn purge_delete_marked_issues(&mut self) -> Option<()> {
         let ids = self.delete_flaged_ids()?;
         for i in ids {
             self.remove_issue(&i);
