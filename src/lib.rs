@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 // use sled::open;
 use std::{
     collections::HashMap,
-    fmt::Debug,
+    fmt::{Debug, Display},
     io,
     path::{Path, PathBuf},
     str,
@@ -16,6 +16,15 @@ pub enum Error {
     DbNotFound,
     IoError(io::Error),
     SerdeError(serde_json::Error),
+}
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::DbNotFound => write!(f, "db not found."),
+            Error::IoError(error) => write!(f, "io error: {}", error),
+            Error::SerdeError(error) => write!(f, "serde error: {}", error),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, PartialOrd, Eq)]
@@ -194,6 +203,7 @@ pub struct Project {
 
 /// Projectの操作
 impl Project {
+    /// パスにdbを設置
     pub fn open<S: AsRef<str>, P: AsRef<Path>>(title: S, path: P) -> Result<Self, Error> {
         let db_path = path.as_ref().join("db").with_extension("toml");
         let db = {
