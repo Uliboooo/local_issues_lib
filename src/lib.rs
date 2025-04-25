@@ -43,6 +43,28 @@ pub enum Closed {
     NotResolved,
 }
 
+/// メッセージをVecで保持
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+struct CommitMessages {
+    message: Vec<String>,
+}
+impl CommitMessages {
+    fn new<S: AsRef<str>>(message: S) -> Self {
+        Self {
+            message: vec![message.as_ref().to_string()],
+        }
+    }
+
+    fn push<S: AsRef<str>>(&mut self, message: S) {
+        self.message.push(message.as_ref().to_string());
+    }
+}
+// impl CommitMessage {
+//     fn load_file(&mut self) {
+
+//     }
+// }
+
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct Issue {
     title: String,
@@ -51,7 +73,7 @@ pub struct Issue {
     due_date: Option<DateTime<Local>>,
     status: Status,
     tags: Option<Vec<String>>,
-    body_path: PathBuf,
+    commit_messages: CommitMessages,
 }
 impl Issue {
     pub fn new<S: AsRef<str>, P: AsRef<Path>>(
@@ -59,7 +81,7 @@ impl Issue {
         due_date: Option<DateTime<Local>>,
         status: Status,
         tags: Option<Vec<String>>,
-        body_path: P,
+        message: S,
     ) -> Self {
         let now = Local::now();
         Self {
@@ -69,13 +91,17 @@ impl Issue {
             due_date,
             status,
             tags,
-            body_path: body_path.as_ref().to_path_buf(),
+            commit_messages: CommitMessages::new(message),
         }
     }
 
     /// edit title by arg title: String
     fn edit_title(&mut self, title: String) {
         self.title = title
+    }
+
+    fn commit(&mut self, new_message: String) {
+        self.commit_messages.push(new_message);
     }
 
     /// update `updated_at` by now time
@@ -154,10 +180,10 @@ impl Issue {
         self.set_delete_count(10)
     }
 
-    /// edit body path
-    fn edit_body_path(&mut self, new_path: PathBuf) {
-        self.body_path = new_path;
-    }
+    // /// edit body path
+    // fn edit_body_path(&mut self, new_path: PathBuf) {
+    //     self.commit_messages = new_path;
+    // }
 
     /// decrement delete flag count
     fn decrement_delete_count(&mut self) {
@@ -336,6 +362,13 @@ impl Project {
         }
     }
 
+    pub fn add_commit_issue<S: AsRef<str>>(&mut self, id: u64, message: S) -> Option<()> {
+        self.body.get_mut(&id).map(|issue| {
+            issue.update_date();
+            issue.commit(message.as_ref().to_string())
+        })
+    }
+
     /// `new_tag<S>`をidを元にIssueへ追記
     pub fn add_issue_tag<S: AsRef<str>>(&mut self, id: u64, new_tag: Vec<S>) -> Option<()> {
         self.body.get_mut(&id).map(|issue| {
@@ -378,12 +411,12 @@ impl Project {
         })
     }
 
-    pub fn edit_body_path<P: AsRef<Path>>(&mut self, id: u64, new_path: P) -> Option<()> {
-        self.body.get_mut(&id).map(|issue| {
-            issue.update_date();
-            issue.edit_body_path(new_path.as_ref().to_path_buf())
-        })
-    }
+    // pub fn edit_body_path<P: AsRef<Path>>(&mut self, id: u64, new_path: P) -> Option<()> {
+    //     self.body.get_mut(&id).map(|issue| {
+    //         issue.update_date();
+    //         issue.edit_body_path(new_path.as_ref().to_path_buf())
+    //     })
+    // }
 
     pub fn get_delete_flag_count(&self, id: u64) -> Option<i32> {
         self.body

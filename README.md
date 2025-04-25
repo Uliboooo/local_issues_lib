@@ -1,5 +1,10 @@
 # local issues lib
 
+## changes between v0.1.1 ~ v0.2.0
+
+- Issueの`body`を`Vec<String>`に
+
+
 ## RoadMap
 
 ### v0.1
