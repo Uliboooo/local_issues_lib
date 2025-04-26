@@ -1,4 +1,5 @@
 mod db;
+mod message;
 
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
@@ -43,28 +44,6 @@ pub enum Closed {
     NotResolved,
 }
 
-/// メッセージをVecで保持
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
-struct CommitMessages {
-    message: Vec<String>,
-}
-impl CommitMessages {
-    fn new<S: AsRef<str>>(message: S) -> Self {
-        Self {
-            message: vec![message.as_ref().to_string()],
-        }
-    }
-
-    fn push<S: AsRef<str>>(&mut self, message: S) {
-        self.message.push(message.as_ref().to_string());
-    }
-}
-// impl CommitMessage {
-//     fn load_file(&mut self) {
-
-//     }
-// }
-
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct Issue {
     title: String,
@@ -73,7 +52,7 @@ pub struct Issue {
     due_date: Option<DateTime<Local>>,
     status: Status,
     tags: Option<Vec<String>>,
-    commit_messages: CommitMessages,
+    commit_messages: message::CommitMessages,
 }
 impl Issue {
     pub fn new<S: AsRef<str>, P: AsRef<Path>>(
@@ -81,7 +60,6 @@ impl Issue {
         due_date: Option<DateTime<Local>>,
         status: Status,
         tags: Option<Vec<String>>,
-        message: S,
     ) -> Self {
         let now = Local::now();
         Self {
@@ -91,7 +69,7 @@ impl Issue {
             due_date,
             status,
             tags,
-            commit_messages: CommitMessages::new(message),
+            commit_messages: message::CommitMessages::new(),
         }
     }
 
@@ -100,9 +78,9 @@ impl Issue {
         self.title = title
     }
 
-    fn commit(&mut self, new_message: String) {
-        self.commit_messages.push(new_message);
-    }
+    // fn commit(&mut self, new_message: String) {
+    //     self.commit_messages.push(new_message);
+    // }
 
     /// update `updated_at` by now time
     fn update_date(&mut self) {
@@ -132,6 +110,14 @@ impl Issue {
         if let Some(v) = &mut self.tags {
             v.append(&mut new_tags);
         }
+    }
+
+    fn push_commit_message<S: AsRef<str>>(&mut self, message: S) {
+        self.commit_messages.push(message);
+    }
+
+    fn remove_commit_message(&mut self, id: u64) {
+        self.commit_messages.remove(id);
     }
 
     // /// if status is open, change to closed.if it is `MarkedAsdelete`, reset count(default: 10).
@@ -292,7 +278,7 @@ impl Project {
     }
 
     /// add tags to self.tags from arg: `Vec<String>`
-    pub fn add_tags(&mut self, new_tags: &mut Vec<String>) {
+    pub fn add_tags_to_project(&mut self, new_tags: &mut Vec<String>) {
         self.tags.append(new_tags);
     }
 
@@ -305,16 +291,6 @@ impl Project {
     /// return cloned current tags: `Vec<String>`
     pub fn get_tags(&mut self) -> Vec<String> {
         self.tags.clone()
-    }
-}
-
-/// issueの操作
-impl Project {
-    /// current_idをインクリメントして挿入
-    fn insert(&mut self, new_issue: Issue) {
-        let new_id = self.current_id + 1;
-        self.body.insert(new_id, new_issue);
-        self.current_id = new_id;
     }
 
     /// Project.bodyに`new_issue`を追加(idのインクリメントは自動)
@@ -361,30 +337,36 @@ impl Project {
             }
         }
     }
+}
 
-    pub fn add_commit_issue<S: AsRef<str>>(&mut self, id: u64, message: S) -> Option<()> {
-        self.body.get_mut(&id).map(|issue| {
-            issue.update_date();
-            issue.commit(message.as_ref().to_string())
-        })
+/// issueの操作
+impl Project {
+    /// current_idをインクリメントして挿入
+    fn insert(&mut self, new_issue: Issue) {
+        self.current_id += 1;
+        self.body.insert(self.current_id, new_issue);
     }
 
     /// `new_tag<S>`をidを元にIssueへ追記
-    pub fn add_issue_tag<S: AsRef<str>>(&mut self, id: u64, new_tag: Vec<S>) -> Option<()> {
+    pub fn add_tag_to_issue_by_id<S: AsRef<str>>(
+        &mut self,
+        id: u64,
+        new_tag: Vec<S>,
+    ) -> Option<()> {
         self.body.get_mut(&id).map(|issue| {
             issue.update_date();
             issue.add_tag(new_tag.iter().map(|f| f.as_ref().to_string()).collect())
         })
     }
     /// idを元にissueのtagをクリア
-    pub fn clear_issue_tag(&mut self, id: u64) -> Option<()> {
+    pub fn clear_tags_of_issue_by_id(&mut self, id: u64) -> Option<()> {
         self.body.get_mut(&id).map(|issue| {
             issue.update_date();
             issue.clear_tags()
         })
     }
 
-    pub fn get_issue_tags(&self, id: u64) -> Option<Vec<String>> {
+    pub fn get_tags_from_issue_by_id(&self, id: u64) -> Option<Vec<String>> {
         self.body.get(&id).and_then(|f| f.clone().get_tags())
     }
 
@@ -410,13 +392,6 @@ impl Project {
             issue.edit_due_date(due)
         })
     }
-
-    // pub fn edit_body_path<P: AsRef<Path>>(&mut self, id: u64, new_path: P) -> Option<()> {
-    //     self.body.get_mut(&id).map(|issue| {
-    //         issue.update_date();
-    //         issue.edit_body_path(new_path.as_ref().to_path_buf())
-    //     })
-    // }
 
     pub fn get_delete_flag_count(&self, id: u64) -> Option<i32> {
         self.body
@@ -462,6 +437,23 @@ impl Project {
             self.remove_issue(&i);
         }
         Some(())
+    }
+}
+
+/// 固有issueの操作
+impl Project {
+    pub fn add_commit_by_id<S: AsRef<str>>(&mut self, id: u64, message: S) {
+        if let Some(issue) = self.body.get_mut(&id) {
+            issue.update_date();
+            issue.push_commit_message(message)
+        }
+    }
+
+    pub fn rm_commit_message(&mut self, id: u64) {
+        if let Some(issue) = self.body.get_mut(&id) {
+            issue.update_date();
+            issue.remove_commit_message(id)
+        }
     }
 }
 
