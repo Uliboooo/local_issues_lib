@@ -2,6 +2,7 @@ mod db;
 mod message;
 
 use chrono::{DateTime, Local};
+use db::{load_db, save};
 use serde::{Deserialize, Serialize};
 // use sled::open;
 use std::{
@@ -55,7 +56,7 @@ pub struct Issue {
     commit_messages: message::CommitMessages,
 }
 impl Issue {
-    pub fn new<S: AsRef<str>, P: AsRef<Path>>(
+    pub fn new<S: AsRef<str>>(
         title: S,
         due_date: Option<DateTime<Local>>,
         status: Status,
@@ -215,27 +216,27 @@ pub struct Project {
 
 /// Projectの操作
 impl Project {
-    /// パスにdbを設置
+    /// # args
+    ///
+    /// * `title` - Project title
+    /// * `path` - dir path that set `db.json`
     pub fn open<S: AsRef<str>, P: AsRef<Path>>(title: S, path: P) -> Result<Self, Error> {
-        let db_path = path.as_ref().join("db").with_extension("toml");
-        let db = {
-            if db_path.exists() {
-                return db::load_db(&path);
-            } else {
-                // like a new()
-                // when file isn't exist, init Project as id = 0
-                let void_body = Project {
-                    project_name: title.as_ref().to_string(),
-                    work_path: path.as_ref().to_path_buf(),
-                    db_path,
-                    body: HashMap::new(),
-                    current_id: 0,
-                    tags: Vec::new(),
-                };
-                db::save(void_body)?;
-            }
-            db::load_db(&path)
-        }?;
+        let work_path = path.as_ref().join(".local_issues");
+        let db_path = work_path.join("db").with_extension("json");
+
+        if !db_path.exists() {
+            let void_body = Project {
+                project_name: title.as_ref().to_string(),
+                work_path,
+                db_path: db_path.clone(),
+                body: HashMap::new(),
+                current_id: 0,
+                tags: Vec::new(),
+            };
+            save(void_body)?;
+        };
+
+        let db = load_db(&db_path)?;
         Ok(db)
     }
 
@@ -458,4 +459,28 @@ impl Project {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use crate::{Issue, Project};
+    use std::env;
+
+    #[test]
+    fn test_new_pro() {
+        let workdir = env::current_dir().unwrap().join("test").join("test_open");
+        println!("{:?}", workdir);
+
+        let test_project = Project::open("test_pro", workdir).unwrap();
+        println!("{:?}", test_project);
+    }
+
+    #[test]
+    fn ctrl_issues() {
+        let workdir = env::current_dir().unwrap().join("test").join("test_ctrl");
+        // fs::remove_dir(&workdir).unwrap();
+        let mut pro = Project::open("ctrl_test", workdir).unwrap();
+
+        pro.add_issue(Issue::new("issute1", None, crate::Status::Open, None));
+        pro.add_issue(Issue::new("title2", None, crate::Status::Open, None));
+        pro.edit_issue_title(2, "new_title7");
+        pro.save().unwrap();
+    }
+}
