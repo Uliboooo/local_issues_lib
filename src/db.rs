@@ -20,11 +20,16 @@ pub fn load_db<P: AsRef<Path>>(path: &P) -> Result<Project, Error> {
     let mut content = String::new();
     f.read_to_string(&mut content).map_err(Error::IoError)?;
 
-    let se: Project = serde_json::from_str(&content).map_err(Error::SerdeError)?;
-    Ok(se)
+    let de: Project = serde_json::from_str(&content).map_err(Error::SerdeError)?;
+    Ok(de)
 }
 
 fn load_file(path: &PathBuf) -> Result<File, Error> {
+    if !path.exists() {
+        if let Some(p) = path.parent() {
+            fs::create_dir_all(p).map_err(Error::IoError)?;
+        }
+    }
     fs::OpenOptions::new()
         .read(true)
         .truncate(false)

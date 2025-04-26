@@ -1,5 +1,14 @@
 # local issues lib
 
+## changes between 0.2.0 -> 0.3.0
+
+- Issueの`body`を`commit_messages: message::CommitMessages,`に
+
+## changes between v0.1.1 ~ v0.2.0
+
+- Issueの`body`を`Vec<String>`に
+
+
 ## RoadMap
 
 ### v0.1
