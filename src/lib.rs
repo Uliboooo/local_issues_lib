@@ -37,12 +37,29 @@ pub enum Status {
     /// count of delted this issue
     MarkedAsDelete(i32),
 }
+impl Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Status::Open => write!(f, "open"),
+            Status::Closed(closed) => write!(f, "closed{}", closed),
+            Status::MarkedAsDelete(c) => write!(f, "Delete at {}", c),
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, PartialOrd, Eq)]
 pub enum Closed {
     #[default]
     Resolved,
     NotResolved,
+}
+impl Display for Closed {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Closed::Resolved => write!(f, "Resolved"),
+            Closed::NotResolved => write!(f, "NotResolved"),
+        }
+    }
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
@@ -118,25 +135,12 @@ impl Issue {
     }
 
     fn is_opend(&self) -> bool {
-        match self.status {
-            Status::Open => true,
-            _ => false,
-        }
+        matches!(self.status, Status::Open)
     }
 
     fn remove_commit_message(&mut self, id: u64) {
         self.commit_messages.remove(id);
     }
-
-    // /// if status is open, change to closed.if it is `MarkedAsdelete`, reset count(default: 10).
-    // fn update_status(&mut self) {
-    //     self.status = match self.status {
-    //         Status::Open => Status::Closed(C),
-    //         Status::Closed => Status::Archived,
-    //         Status::Archived => Status::MarkedAsdelete(10),
-    //         Status::MarkedAsdelete(_) => Status::MarkedAsdelete(10),
-    //     };
-    // }
 
     pub fn is_delete_marked(&self) -> bool {
         matches!(self.status, Status::MarkedAsDelete(_))
@@ -173,11 +177,6 @@ impl Issue {
     fn reset_delete_count(&mut self) -> Option<i32> {
         self.set_delete_count(10)
     }
-
-    // /// edit body path
-    // fn edit_body_path(&mut self, new_path: PathBuf) {
-    //     self.commit_messages = new_path;
-    // }
 
     /// decrement delete flag count
     fn decrement_delete_count(&mut self) {
@@ -294,13 +293,9 @@ impl Project {
             .collect::<Vec<u64>>();
         if res.is_empty() { None } else { Some(res) }
     }
-    
+
     pub fn get_all_issue_id(&self) -> Option<Vec<u64>> {
-        let res = self
-            .body
-            .iter()
-            .map(|f| *f.0)
-            .collect::<Vec<u64>>();
+        let res = self.body.iter().map(|f| *f.0).collect::<Vec<u64>>();
         if res.is_empty() { None } else { Some(res) }
     }
 
@@ -484,6 +479,89 @@ impl Project {
     }
 }
 
+impl Display for Project {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let tagss = self
+            .tags
+            .iter()
+            .map(|f| {
+                let mut a = f.clone();
+                a.push(',');
+                a
+            })
+            .collect::<String>();
+
+        let bodys = self
+            .body
+            .iter()
+            .map(|f| {
+                let c = f;
+                format!(
+                    "\t#{} {}\n\t{}\n\t{:?}\n\n",
+                    c.0, c.1.title, c.1.status, c.1.tags
+                )
+            })
+            .collect::<String>();
+
+        let project_sum = format!(
+            "title: {}\ntags: {}\nIssues: \n{}",
+            self.project_name, tagss, bodys
+        );
+        write!(f, "{}", project_sum)
+    }
+}
+
+impl Project {
+    // i dont know whether it works correctly
+    pub fn filterd_string(&self, filter_id: Vec<u64>) -> String {
+        let tagss = self
+            .tags
+            .iter()
+            .map(|f| {
+                let mut a = f.clone();
+                a.push(',');
+                a
+            })
+            .collect::<String>();
+        let bodys = filter_id
+            .iter()
+            .map(|c| {
+                self.body
+                    .iter()
+                    .filter(|f| f.0 == c)
+                    .map(|e| format!("\t#{} {}\n", e.0, e.1.title,))
+                    .collect::<String>()
+            })
+            .collect::<String>();
+        format!(
+            "title: {}\ntags: {}\nIssues: \n{}",
+            self.project_name, tagss, bodys
+        )
+    }
+    pub fn oneline_fmt(&self) -> String {
+        let tagss = self
+            .tags
+            .iter()
+            .map(|f| {
+                let mut a = f.clone();
+                a.push(',');
+                a
+            })
+            .collect::<String>();
+
+        let bodys = self
+            .body
+            .iter()
+            .map(|f| format!("\t#{} {}\n", f.0, f.1.title))
+            .collect::<String>();
+
+        format!(
+            "title: {}\ntags: {}\nIssues: \n{}",
+            self.project_name, tagss, bodys
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{Issue, Project};
@@ -507,6 +585,11 @@ mod tests {
         pro.add_issue(Issue::new("issute1", None, crate::Status::Open, None));
         pro.add_issue(Issue::new("title2", None, crate::Status::Open, None));
         pro.edit_issue_title(2, "new_title7");
-        pro.save().unwrap();
+        // pro.save().unwrap();
+
+        println!("{}", pro);
+        println!("{}", pro.oneline_fmt());
+        let ids = vec![1];
+        println!("{}", pro.filterd_string(ids));
     }
 }
