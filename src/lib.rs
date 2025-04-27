@@ -117,6 +117,13 @@ impl Issue {
         self.commit_messages.push(message);
     }
 
+    fn is_opend(&self) -> bool {
+        match self.status {
+            Status::Open => true,
+            _ => false,
+        }
+    }
+
     fn remove_commit_message(&mut self, id: u64) {
         self.commit_messages.remove(id);
     }
@@ -219,7 +226,7 @@ impl Project {
     /// # args
     ///
     /// * `title` - Project title
-    /// * `path` - dir path that set `db.json`
+    /// * `path` - work dir path that set `db.json`
     pub fn open<S: AsRef<str>, P: AsRef<Path>>(title: S, path: P) -> Result<Self, Error> {
         let work_path = path.as_ref().join(".local_issues");
         let db_path = work_path.join("db").with_extension("json");
@@ -273,6 +280,25 @@ impl Project {
             .body
             .iter()
             .filter(|f| f.1.title.contains(title.as_ref()) || title.as_ref().contains(&f.1.title))
+            .map(|f| *f.0)
+            .collect::<Vec<u64>>();
+        if res.is_empty() { None } else { Some(res) }
+    }
+
+    pub fn get_opened_issue_id(&self) -> Option<Vec<u64>> {
+        let res = self
+            .body
+            .iter()
+            .filter(|f| f.1.is_opend())
+            .map(|f| *f.0)
+            .collect::<Vec<u64>>();
+        if res.is_empty() { None } else { Some(res) }
+    }
+    
+    pub fn get_all_issue_id(&self) -> Option<Vec<u64>> {
+        let res = self
+            .body
+            .iter()
             .map(|f| *f.0)
             .collect::<Vec<u64>>();
         if res.is_empty() { None } else { Some(res) }
