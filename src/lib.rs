@@ -566,7 +566,7 @@ impl Project {
     }
 
     pub fn get_commit_messages_list_by_id(&self, id: u64) -> Option<String> {
-        self.body.get(&id).map(|f| format!("{}", f.commit_messages))
+        self.body.get(&id).map(|f| f.get_messages().to_string())
     }
 }
 
