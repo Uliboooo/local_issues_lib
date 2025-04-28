@@ -119,6 +119,10 @@ impl Issue {
         self.tags = None;
     }
 
+    fn get_messages(&self) -> String {
+        format!("{}", self.commit_messages)
+    }
+
     fn get_tags(&mut self) -> Option<Vec<String>> {
         self.tags.clone()
     }
@@ -559,6 +563,10 @@ impl Project {
             "title: {}\ntags: {}\nIssues: \n{}",
             self.project_name, tagss, bodys
         )
+    }
+
+    pub fn get_commit_messages_list_by_id(&self, id: u64) -> Option<String> {
+        self.body.get(&id).map(|f| format!("{}", f.commit_messages))
     }
 }
 
