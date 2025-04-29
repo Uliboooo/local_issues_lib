@@ -1,603 +1,312 @@
-mod db;
-mod message;
-
 use chrono::{DateTime, Local};
-use db::{load_db, save};
-use serde::{Deserialize, Serialize};
-// use sled::open;
-use std::{
-    collections::HashMap,
-    fmt::{Debug, Display},
-    io,
-    path::{Path, PathBuf},
-    str,
-};
+use std::fmt::Display;
 
-#[derive(Debug)]
-pub enum Error {
-    DbNotFound,
-    IoError(io::Error),
-    SerdeError(serde_json::Error),
+#[derive(Debug, PartialEq, Eq)]
+pub struct Message {
+    message: String,
+    show: bool,
+    created_at: DateTime<Local>,
 }
-impl Display for Error {
+impl Message {
+    pub fn new<S: AsRef<str>>(message: S, show: bool) -> Self {
+        Self {
+            message: message.as_ref().to_string(),
+            show,
+            created_at: Local::now(),
+        }
+    }
+    fn hide(&mut self) {
+        self.show = false;
+    }
+    fn show(&mut self) {
+        self.show = true
+    }
+}
+
+impl Display for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::DbNotFound => write!(f, "db not found."),
-            Error::IoError(error) => write!(f, "io error: {}", error),
-            Error::SerdeError(error) => write!(f, "serde error: {}", error),
+        if self.show {
+            writeln!(f, "{}\n\t{}\n", self.created_at.to_rfc2822(), self.message)
+        } else {
+            write!(f, "")
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, PartialOrd, Eq)]
-pub enum Status {
-    #[default]
+trait ManageMessage {
+    fn new() -> Self
+    where
+        Self: Sized;
+    // fn id_increment(&mut self);
+
+    fn hide_message_by_id(&mut self, id: u64);
+    fn show_message_by_id(&mut self, id: u64);
+    fn add_message_to(&mut self, new_message: Message);
+    fn rm_message(&mut self, id: u64);
+}
+
+#[derive(Debug, Default)]
+struct Messages(Vec<Message>);
+
+impl ManageMessage for Messages {
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
+        Self(Vec::new())
+    }
+
+    fn hide_message_by_id(&mut self, id: u64) {
+        if let Some(f) = self.0.get_mut(id as usize) {
+            f.hide()
+        }
+    }
+
+    fn show_message_by_id(&mut self, id: u64) {
+        if let Some(f) = self.0.get_mut(id as usize) {
+            f.show()
+        }
+    }
+
+    fn add_message_to(&mut self, new_message: Message) {
+        // self.id_increment();
+        self.0.push(new_message);
+    }
+
+    /// ⚠️ this fn remove message in Vec and rewrite index.
+    fn rm_message(&mut self, id: u64) {
+        self.0.remove(id as usize);
+    }
+}
+
+// Tue, 29 Apr 2025 18:12:31 +0900
+// message
+//
+// Tue, 29 Apr 2025 18:12:31 +0900
+// message2
+impl Display for Messages {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .map(|f| { format!("{}", f) })
+                .collect::<String>()
+        )
+    }
+}
+
+enum Status {
     Open,
     Closed(Closed),
-    /// count of delted this issue
-    MarkedAsDelete(i32),
 }
+
+impl Status {
+    fn is_opened(&self) -> bool {
+        matches!(self, Status::Open)
+    }
+}
+
 impl Display for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Status::Open => write!(f, "open"),
-            Status::Closed(closed) => write!(f, "closed{}", closed),
-            Status::MarkedAsDelete(c) => write!(f, "Delete at {}", c),
+            Status::Open => write!(f, "Open"),
+            Status::Closed(closed) => match closed {
+                Closed::Resolved => write!(f, "Resolved Closed"),
+                Closed::UnResolved => write!(f, "UnResolved Closed"),
+            },
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, PartialOrd, Eq)]
-pub enum Closed {
-    #[default]
+enum Closed {
     Resolved,
-    NotResolved,
-}
-impl Display for Closed {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Closed::Resolved => write!(f, "Resolved"),
-            Closed::NotResolved => write!(f, "NotResolved"),
-        }
-    }
+    UnResolved,
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct Issue {
-    title: String,
+    name: String,
+    messages: Messages,
+    status: Status,
     created_at: DateTime<Local>,
     updated_at: DateTime<Local>,
     due_date: Option<DateTime<Local>>,
-    status: Status,
-    tags: Option<Vec<String>>,
-    commit_messages: message::CommitMessages,
 }
+
 impl Issue {
-    pub fn new<S: AsRef<str>>(
-        title: S,
-        due_date: Option<DateTime<Local>>,
-        status: Status,
-        tags: Option<Vec<String>>,
-    ) -> Self {
-        let now = Local::now();
+    pub fn new<S: AsRef<str>>(name: S) -> Self {
         Self {
-            title: title.as_ref().to_string(),
-            created_at: now,
-            updated_at: now,
-            due_date,
-            status,
-            tags,
-            commit_messages: message::CommitMessages::new(),
+            name: name.as_ref().to_string(),
+            messages: Messages::new(),
+            status: Status::Open,
+            created_at: Local::now(),
+            updated_at: Local::now(),
+            due_date: None,
         }
     }
 
-    /// edit title by arg title: String
-    fn edit_title(&mut self, title: String) {
-        self.title = title
-    }
-
-    // fn commit(&mut self, new_message: String) {
-    //     self.commit_messages.push(new_message);
-    // }
-
-    /// update `updated_at` by now time
-    fn update_date(&mut self) {
+    fn update(&mut self) {
         self.updated_at = Local::now();
     }
 
-    /// edit `due_date` by arg
-    fn edit_due_date(&mut self, new_due: DateTime<Local>) {
+    pub fn commit<S: AsRef<str>>(&mut self, msg_str: S) {
+        self.update();
+        self.messages.add_message_to(Message::new(msg_str, true));
+    }
+
+    pub fn rename<S: AsRef<str>>(&mut self, new_title: S) {
+        self.name = new_title.as_ref().to_string();
+    }
+
+    /// set due_date as new_due. if it is `None`, change to Some(DateTime<Local>)
+    pub fn edit_due(&mut self, new_due: DateTime<Local>) {
         self.due_date = Some(new_due);
     }
 
-    /// edit status
-    fn edit_status(&mut self, new_status: Status) {
-        self.status = new_status;
+    /// ⚠️ this fn remove message in Vec and rewrite index.
+    /// recommend hide_message().
+    pub fn rm_commit(&mut self, id: u64) {
+        self.messages.rm_message(id);
     }
 
-    fn clear_tags(&mut self) {
-        self.tags = None;
+    pub fn hide_message(&mut self, id: u64) {
+        self.messages.hide_message_by_id(id);
     }
 
-    fn get_messages(&self) -> String {
-        format!("{}", self.commit_messages)
+    pub fn show_message(&mut self, id: u64) {
+        self.messages.show_message_by_id(id);
     }
 
-    fn get_tags(&mut self) -> Option<Vec<String>> {
-        self.tags.clone()
-    }
-
-    /// self.tagsがSomeの場合にのみ`new_tags`をappend
-    fn add_tag(&mut self, mut new_tags: Vec<String>) {
-        if let Some(v) = &mut self.tags {
-            v.append(&mut new_tags);
-        }
-    }
-
-    fn push_commit_message<S: AsRef<str>>(&mut self, message: S) {
-        self.commit_messages.push(message);
-    }
-
-    fn is_opend(&self) -> bool {
-        matches!(self.status, Status::Open)
-    }
-
-    fn remove_commit_message(&mut self, id: u64) {
-        self.commit_messages.remove(id);
-    }
-
-    pub fn is_delete_marked(&self) -> bool {
-        matches!(self.status, Status::MarkedAsDelete(_))
-    }
-
-    fn delete_flag_is_zero(&self) -> bool {
-        match self.status {
-            Status::MarkedAsDelete(i) => i == 0,
-            _ => false,
-        }
-    }
-
-    fn delete_flag_count(&self) -> Option<i32> {
-        match self.status {
-            Status::MarkedAsDelete(c) => Some(c),
-            _ => None,
-        }
-    }
-
-    fn set_delete_count(&mut self, new_count: i32) -> Option<i32> {
-        match self.status {
-            Status::MarkedAsDelete(_) => {
-                self.status = Status::MarkedAsDelete(new_count);
-                if let Status::MarkedAsDelete(c) = self.status {
-                    Some(c)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
-    }
-
-    fn reset_delete_count(&mut self) -> Option<i32> {
-        self.set_delete_count(10)
-    }
-
-    /// decrement delete flag count
-    fn decrement_delete_count(&mut self) {
-        if let Status::MarkedAsDelete(c) = self.status {
-            self.status = Status::MarkedAsDelete(c - 1)
-        }
-    }
-}
-
-pub enum MatchType {
-    Exact,
-    Partial,
-    Not,
-}
-
-/// 部分一致の場合は、`Some(item or item2)`
-/// 0 is item、1 is item2
-pub fn compare_titles<S: AsRef<str> + Eq>(item: &S, item2: &S) -> (MatchType, Option<u8>) {
-    if item.as_ref() == item2.as_ref() {
-        (MatchType::Exact, None)
-    } else if item.as_ref().contains(item2.as_ref()) {
-        (MatchType::Partial, Some(0))
-    } else if item2.as_ref().contains(item.as_ref()) {
-        (MatchType::Partial, Some(1))
-    } else {
-        (MatchType::Not, None)
-    }
-}
-
-pub type BodyData = HashMap<u64, Issue>;
-pub type FetahedItem = (MatchType, BodyData);
-pub type FetchedList = Vec<FetahedItem>;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Project {
-    pub project_name: String,
-    pub work_path: PathBuf,
-    pub db_path: PathBuf,
-    pub body: BodyData,
-    current_id: u64,
-    pub tags: Vec<String>,
-}
-
-/// Projectの操作
-impl Project {
-    /// # args
-    ///
-    /// * `title` - Project title
-    /// * `path` - work dir path that set `db.json`
-    pub fn open<S: AsRef<str>, P: AsRef<Path>>(title: S, path: P) -> Result<Self, Error> {
-        let work_path = path.as_ref().join(".local_issues");
-        let db_path = work_path.join("db").with_extension("json");
-
-        if !db_path.exists() {
-            let void_body = Project {
-                project_name: title.as_ref().to_string(),
-                work_path,
-                db_path: db_path.clone(),
-                body: HashMap::new(),
-                current_id: 0,
-                tags: Vec::new(),
-            };
-            save(void_body)?;
-        };
-
-        let db = load_db(&db_path)?;
-        Ok(db)
-    }
-
-    /// save data to file and purge deleted marked issues.
-    pub fn save(mut self) -> Result<(), Error> {
-        self.purge_delete_marked_issues();
-        self.decrement_delete_flag();
-        db::save(self)?;
-        Ok(())
-    }
-
-    /// MarkedAsdeleteのチェックなしで保存
-    /// また、デクリメント処理もしない
-    /// **カウントが実際の操作とズレる可能性があるため注意**
-    pub fn save_without_delete(self) -> Result<(), Error> {
-        db::save(self)?;
-        Ok(())
-    }
-
-    /// タイトルが完全一致したidを`Option<Vec<u64>>`で返す
-    pub fn get_id_with_exact<S: AsRef<str>>(&self, title: &S) -> Option<Vec<u64>> {
-        let res = self
-            .body
+    /// return first id found.
+    pub fn search<S: AsRef<str>>(&self, target_title: S) -> Option<u64> {
+        self.messages
+            .0
             .iter()
-            .filter(|f| f.1.title == title.as_ref())
-            .map(|f| *f.0)
-            .collect::<Vec<u64>>();
-        if res.is_empty() { None } else { Some(res) }
+            .position(|f| f.message == *target_title.as_ref())
+            .map(|f| f as u64)
     }
 
-    /// タイトルが部分一致したidを`Option<Vec<u64>>`で返す
-    pub fn get_id_with_partial<S: AsRef<str>>(&self, title: &S) -> Option<Vec<u64>> {
-        let res = self
-            .body
+    pub fn search_list<S: AsRef<str>>(&self, target_title: S) -> Option<Vec<u64>> {
+        let a = self
+            .messages
+            .0
             .iter()
-            .filter(|f| f.1.title.contains(title.as_ref()) || title.as_ref().contains(&f.1.title))
-            .map(|f| *f.0)
+            .enumerate()
+            .filter(|f| f.1.message == *target_title.as_ref())
+            .map(|f| f.0 as u64)
             .collect::<Vec<u64>>();
-        if res.is_empty() { None } else { Some(res) }
+        if a.is_empty() { Some(a) } else { None }
     }
 
-    pub fn get_opened_issue_id(&self) -> Option<Vec<u64>> {
-        let res = self
-            .body
-            .iter()
-            .filter(|f| f.1.is_opend())
-            .map(|f| *f.0)
-            .collect::<Vec<u64>>();
-        if res.is_empty() { None } else { Some(res) }
-    }
-
-    pub fn get_all_issue_id(&self) -> Option<Vec<u64>> {
-        let res = self.body.iter().map(|f| *f.0).collect::<Vec<u64>>();
-        if res.is_empty() { None } else { Some(res) }
-    }
-
-    /// add tags to self.tags from arg: `Vec<String>`
-    pub fn add_tags_to_project(&mut self, new_tags: &mut Vec<String>) {
-        self.tags.append(new_tags);
-    }
-
-    /// remove tags from self.tags, by tag_names: `Vec<String>`
-    pub fn remove_tag(&mut self, tag_names: Vec<String>) {
-        // fがtag_namesに含まれている場合は削除される。
-        self.tags.retain(|f| tag_names.iter().any(|t| t != f));
-    }
-
-    /// return cloned current tags: `Vec<String>`
-    pub fn get_tags(&mut self) -> Vec<String> {
-        self.tags.clone()
-    }
-
-    /// Project.bodyに`new_issue`を追加(idのインクリメントは自動)
-    pub fn add_issue(&mut self, new_issue: Issue) {
-        self.insert(new_issue);
-    }
-
-    /// idを元にissueを削除
-    /// statusをdeleteにする訳ではないので注意
-    /// カウント付きで削除するには`edit_status()`で
-    /// ⚠️いつかはカウントにするかもしれない
-    /// 以下の`remove_issue_from_title()`や`remove_all_issue_from_title`も同様
-    pub fn remove_issue(&mut self, id: &u64) -> Option<Issue> {
-        self.body.remove(id)
-    }
-
-    /// 完全一致が一つだった場合にのみ削除
-    /// Noneの場合は削除した項目なし
-    /// ⚠️いつかはカウントにするかもしれない
-    pub fn remove_issue_from_title<S: AsRef<str>>(&mut self, title: S) -> Option<Issue> {
-        match self.get_id_with_exact(&title) {
-            Some(i) => {
-                if i.len() == 1 {
-                    match i.first() {
-                        Some(i) => self.remove_issue(i),
-                        None => None,
-                    }
-                } else {
-                    None
-                }
-            }
-            None => None,
-        }
-    }
-
-    /// 完全一致した内容を全て削除
-    /// ⚠️いつかはカウントにするかもしれない
-    /// Noneの場合は削除した項目なし
-    pub fn remove_all_issue_from_title<S: AsRef<str>>(&mut self, title: S) {
-        let res = self.get_id_with_exact(&title);
-        if let Some(c) = res {
-            for i in c {
-                self.remove_issue(&i);
-            }
-        }
-    }
-}
-
-/// issueの操作
-impl Project {
-    /// current_idをインクリメントして挿入
-    fn insert(&mut self, new_issue: Issue) {
-        self.current_id += 1;
-        self.body.insert(self.current_id, new_issue);
-    }
-
-    /// `new_tag<S>`をidを元にIssueへ追記
-    pub fn add_tag_to_issue_by_id<S: AsRef<str>>(
-        &mut self,
-        id: u64,
-        new_tag: Vec<S>,
-    ) -> Option<()> {
-        self.body.get_mut(&id).map(|issue| {
-            issue.update_date();
-            issue.add_tag(new_tag.iter().map(|f| f.as_ref().to_string()).collect())
-        })
-    }
-    /// idを元にissueのtagをクリア
-    pub fn clear_tags_of_issue_by_id(&mut self, id: u64) -> Option<()> {
-        self.body.get_mut(&id).map(|issue| {
-            issue.update_date();
-            issue.clear_tags()
-        })
-    }
-
-    pub fn get_tags_from_issue_by_id(&self, id: u64) -> Option<Vec<String>> {
-        self.body.get(&id).and_then(|f| f.clone().get_tags())
-    }
-
-    /// idに対応するissueのタイトルを変更
-    pub fn edit_issue_title<S: AsRef<str>>(&mut self, id: u64, new_title: S) -> Option<()> {
-        self.body.get_mut(&id).map(|issue| {
-            issue.update_date();
-            issue.edit_title(new_title.as_ref().to_string())
-        })
-    }
-
-    pub fn edit_issue_status(&mut self, id: u64, new_status: Status) -> Option<()> {
-        self.body.get_mut(&id).map(|issue| {
-            issue.update_date();
-            issue.edit_status(new_status)
-        })
-    }
-
-    /// idを元にissueの`due date`を変更
-    pub fn edit_issue_due(&mut self, id: u64, due: DateTime<Local>) -> Option<()> {
-        self.body.get_mut(&id).map(|issue| {
-            issue.update_date();
-            issue.edit_due_date(due)
-        })
-    }
-
-    pub fn get_delete_flag_count(&self, id: u64) -> Option<i32> {
-        self.body
-            .get(&id)
-            .filter(|issue| issue.is_delete_marked())
-            .and_then(|issue| issue.delete_flag_count())
-    }
-
-    pub fn reset_delete_flag_count(&mut self, id: u64) -> Option<()> {
-        self.body.get_mut(&id).map(|issue| {
-            issue.update_date();
-            issue.reset_delete_count();
-        })
-    }
-
-    /// デクリメント処理
-    fn decrement_delete_flag(&mut self) {
-        for i in self.body.iter_mut() {
-            i.1.decrement_delete_count();
-        }
-    }
-
-    /// delete flagが0のissueのidをVecで返す
-    fn delete_flaged_ids(&self) -> Option<Vec<u64>> {
-        let delete_marked_ids = self
-            .body
-            .iter()
-            .filter(|f| f.1.delete_flag_is_zero())
-            .map(|f| *f.0)
-            .collect::<Vec<u64>>();
-        if delete_marked_ids.is_empty() {
-            None
+    pub fn close(&mut self, is_resolved: bool) {
+        if is_resolved {
+            self.status = Status::Closed(Closed::Resolved);
         } else {
-            Some(delete_marked_ids)
+            self.status = Status::Closed(Closed::UnResolved);
         }
     }
 
-    /// delete flagが0のissueを削除する
-    /// idの順は変更なし
-    fn purge_delete_marked_issues(&mut self) -> Option<()> {
-        let ids = self.delete_flaged_ids()?;
-        for i in ids {
-            self.remove_issue(&i);
-        }
-        Some(())
+    pub fn open(&mut self) {
+        self.status = Status::Open;
+    }
+
+    pub fn is_opened(&self) -> bool {
+        self.status.is_opened()
     }
 }
 
-/// 固有issueの操作
-impl Project {
-    pub fn add_commit_by_id<S: AsRef<str>>(&mut self, id: u64, message: S) {
-        if let Some(issue) = self.body.get_mut(&id) {
-            issue.update_date();
-            issue.push_commit_message(message)
-        }
-    }
-
-    pub fn rm_commit_message(&mut self, id: u64) {
-        if let Some(issue) = self.body.get_mut(&id) {
-            issue.update_date();
-            issue.remove_commit_message(id)
-        }
-    }
-}
-
-impl Display for Project {
+impl Display for Issue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let tagss = self
-            .tags
-            .iter()
-            .map(|f| {
-                let mut a = f.clone();
-                a.push(',');
-                a
-            })
-            .collect::<String>();
-
-        let bodys = self
-            .body
-            .iter()
-            .map(|f| {
-                let c = f;
-                format!(
-                    "\t#{} {}\n\t{}\n\t{:?}\n\n",
-                    c.0, c.1.title, c.1.status, c.1.tags
-                )
-            })
-            .collect::<String>();
-
-        let project_sum = format!(
-            "title: {}\ntags: {}\nIssues: \n{}",
-            self.project_name, tagss, bodys
+        let issue_info = format!(
+            "issue: {}\n  status:\t{}\n  created:\t{}\n  update_at:\t{}\n  due date:\t{}",
+            self.name,
+            self.status,
+            self.created_at.to_rfc2822(),
+            self.updated_at.to_rfc2822(),
+            self.due_date
+                .map(|f| f.to_rfc2822())
+                .unwrap_or("None".to_string())
         );
-        write!(f, "{}", project_sum)
+        write!(f, "{}\n\n{}\n", issue_info, self.messages)
     }
 }
 
-impl Project {
-    // i dont know whether it works correctly
-    pub fn filterd_string(&self, filter_id: Vec<u64>) -> String {
-        let tagss = self
-            .tags
-            .iter()
-            .map(|f| {
-                let mut a = f.clone();
-                a.push(',');
-                a
-            })
-            .collect::<String>();
-        let bodys = filter_id
-            .iter()
-            .map(|c| {
-                self.body
-                    .iter()
-                    .filter(|f| f.0 == c)
-                    .map(|e| format!("\t#{} {}\n", e.0, e.1.title,))
-                    .collect::<String>()
-            })
-            .collect::<String>();
-        format!(
-            "title: {}\ntags: {}\nIssues: \n{}",
-            self.project_name, tagss, bodys
-        )
-    }
-    pub fn oneline_fmt(&self) -> String {
-        let tagss = self
-            .tags
-            .iter()
-            .map(|f| {
-                let mut a = f.clone();
-                a.push(',');
-                a
-            })
-            .collect::<String>();
-
-        let bodys = self
-            .body
-            .iter()
-            .map(|f| format!("\t#{} {}\n", f.0, f.1.title))
-            .collect::<String>();
-
-        format!(
-            "title: {}\ntags: {}\nIssues: \n{}",
-            self.project_name, tagss, bodys
-        )
-    }
-
-    pub fn get_commit_messages_list_by_id(&self, id: u64) -> Option<String> {
-        self.body.get(&id).map(|f| f.get_messages().to_string())
+impl Issue {
+    pub fn fmt_only_open(&self) -> String {
+        if self.is_opened() {
+            let issue_info = format!(
+                "issue:\t\t{}\nstatus:\t\t{}\ncreated:\t{}\nupdate_at:\t{}\ndue date:\t{}",
+                self.name,
+                self.status,
+                self.created_at.to_rfc2822(),
+                self.updated_at.to_rfc2822(),
+                self.due_date
+                    .map(|f| f.to_rfc2822())
+                    .unwrap_or("None".to_string())
+            );
+            format!("{}\n\n{}\n", issue_info, self.messages)
+        } else {
+            String::new()
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{Issue, Project};
-    use std::env;
+    use std::{thread, time};
+
+    use crate::Issue;
+
+    use super::{ManageMessage, Message, Messages};
 
     #[test]
-    fn test_new_pro() {
-        let workdir = env::current_dir().unwrap().join("test").join("test_open");
-        println!("{:?}", workdir);
+    fn messages_print_test() {
+        let mut msgs = Messages::new();
 
-        let test_project = Project::open("test_pro", workdir).unwrap();
-        println!("{:?}", test_project);
+        let new_msg = Message::new("message", true);
+        msgs.add_message_to(new_msg);
+        let new_msg2 = Message::new("message2", true);
+        msgs.add_message_to(new_msg2);
+        let new_msg3 = Message::new("hide", false);
+        msgs.add_message_to(new_msg3);
+        let new_msg4 = Message::new("show", true);
+        msgs.add_message_to(new_msg4);
+
+        println!("{}", msgs);
     }
 
     #[test]
-    fn ctrl_issues() {
-        let workdir = env::current_dir().unwrap().join("test").join("test_ctrl");
-        // fs::remove_dir(&workdir).unwrap();
-        let mut pro = Project::open("ctrl_test", workdir).unwrap();
+    fn issue_tests() {
+        let mut test_issue = Issue::new("test");
 
-        pro.add_issue(Issue::new("issute1", None, crate::Status::Open, None));
-        pro.add_issue(Issue::new("title2", None, crate::Status::Open, None));
-        pro.edit_issue_title(2, "new_title7");
-        // pro.save().unwrap();
+        test_issue.commit("test1_show");
+        thread::sleep(time::Duration::from_secs(3));
+        test_issue.commit("test2_hide");
+        let hide_id = test_issue.search("test2_hide").unwrap();
+        test_issue.hide_message(hide_id);
 
-        println!("{}", pro);
-        println!("{}", pro.oneline_fmt());
-        let ids = vec![1];
-        println!("{}", pro.filterd_string(ids));
+        println!("{}", test_issue);
+
+        test_issue.show_message(hide_id);
+        println!("{}", test_issue);
+    }
+
+    #[test]
+    fn test_print_issue() {
+        let mut open_issue = Issue::new("show_issue");
+        open_issue.commit("msg_str");
+        open_issue.commit("2");
+        let mut close_issue = Issue::new("closed_issue");
+        close_issue.close(true);
+
+        let l = vec![open_issue, close_issue];
+        for i in &l {
+            println!("{}", i.fmt_only_open());
+        }
+
+        for i in &l {
+            println!("{}", i);
+        }
     }
 }
