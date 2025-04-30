@@ -1,7 +1,18 @@
-use chrono::{DateTime, Local};
-use std::fmt::Display;
+mod db;
 
-#[derive(Debug, PartialEq, Eq)]
+use chrono::{DateTime, Local};
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::HashMap,
+    fmt::Display,
+    path::{Path, PathBuf},
+};
+
+pub enum Error {
+    DbError(db::Error),
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Message {
     message: String,
     show: bool,
@@ -37,16 +48,14 @@ trait ManageMessage {
     fn new() -> Self
     where
         Self: Sized;
-    // fn id_increment(&mut self);
-
     fn hide_message_by_id(&mut self, id: u64);
     fn show_message_by_id(&mut self, id: u64);
     fn add_message_to(&mut self, new_message: Message);
     fn rm_message(&mut self, id: u64);
 }
 
-#[derive(Debug, Default)]
-struct Messages(Vec<Message>);
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct Messages(Vec<Message>);
 
 impl ManageMessage for Messages {
     fn new() -> Self
@@ -97,6 +106,7 @@ impl Display for Messages {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 enum Status {
     Open,
     Closed(Closed),
@@ -120,11 +130,29 @@ impl Display for Status {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 enum Closed {
     Resolved,
     UnResolved,
 }
 
+trait IssueTrait {
+    fn update(&mut self);
+    fn commit<S: AsRef<str>>(&mut self, msg_str: S);
+    fn rename<S: AsRef<str>>(&mut self, new_title: S);
+    fn edit_due(&mut self, new_due: DateTime<Local>);
+    fn rm_commit(&mut self, id: u64);
+    fn hide_message(&mut self, id: u64);
+    fn show_message(&mut self, id: u64);
+    fn search<S: AsRef<str>>(&self, target_title: S) -> Option<u64>;
+    fn search_list<S: AsRef<str>>(&self, target_title: S) -> Option<Vec<u64>>;
+    fn close(&mut self, is_resolved: bool);
+    fn open(&mut self);
+    fn is_opened(&self) -> bool;
+    fn get_message(&self) -> &Messages;
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Issue {
     name: String,
     messages: Messages,
@@ -145,41 +173,43 @@ impl Issue {
             due_date: None,
         }
     }
+}
 
+impl IssueTrait for Issue {
     fn update(&mut self) {
         self.updated_at = Local::now();
     }
 
-    pub fn commit<S: AsRef<str>>(&mut self, msg_str: S) {
+    fn commit<S: AsRef<str>>(&mut self, msg_str: S) {
         self.update();
         self.messages.add_message_to(Message::new(msg_str, true));
     }
 
-    pub fn rename<S: AsRef<str>>(&mut self, new_title: S) {
+    fn rename<S: AsRef<str>>(&mut self, new_title: S) {
         self.name = new_title.as_ref().to_string();
     }
 
     /// set due_date as new_due. if it is `None`, change to Some(DateTime<Local>)
-    pub fn edit_due(&mut self, new_due: DateTime<Local>) {
+    fn edit_due(&mut self, new_due: DateTime<Local>) {
         self.due_date = Some(new_due);
     }
 
     /// ⚠️ this fn remove message in Vec and rewrite index.
     /// recommend hide_message().
-    pub fn rm_commit(&mut self, id: u64) {
+    fn rm_commit(&mut self, id: u64) {
         self.messages.rm_message(id);
     }
 
-    pub fn hide_message(&mut self, id: u64) {
+    fn hide_message(&mut self, id: u64) {
         self.messages.hide_message_by_id(id);
     }
 
-    pub fn show_message(&mut self, id: u64) {
+    fn show_message(&mut self, id: u64) {
         self.messages.show_message_by_id(id);
     }
 
     /// return first id found.
-    pub fn search<S: AsRef<str>>(&self, target_title: S) -> Option<u64> {
+    fn search<S: AsRef<str>>(&self, target_title: S) -> Option<u64> {
         self.messages
             .0
             .iter()
@@ -187,7 +217,7 @@ impl Issue {
             .map(|f| f as u64)
     }
 
-    pub fn search_list<S: AsRef<str>>(&self, target_title: S) -> Option<Vec<u64>> {
+    fn search_list<S: AsRef<str>>(&self, target_title: S) -> Option<Vec<u64>> {
         let a = self
             .messages
             .0
@@ -199,7 +229,7 @@ impl Issue {
         if a.is_empty() { Some(a) } else { None }
     }
 
-    pub fn close(&mut self, is_resolved: bool) {
+    fn close(&mut self, is_resolved: bool) {
         if is_resolved {
             self.status = Status::Closed(Closed::Resolved);
         } else {
@@ -207,12 +237,16 @@ impl Issue {
         }
     }
 
-    pub fn open(&mut self) {
+    fn open(&mut self) {
         self.status = Status::Open;
     }
 
-    pub fn is_opened(&self) -> bool {
+    fn is_opened(&self) -> bool {
         self.status.is_opened()
+    }
+
+    fn get_message(&self) -> &Messages {
+        &self.messages
     }
 }
 
@@ -252,13 +286,192 @@ impl Issue {
     }
 }
 
+pub trait DbProject {
+    fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Self;
+    fn data_load<P: AsRef<Path>>(path: P) -> Result<Self, Error>
+    where
+        Self: Sized;
+    fn data_load_without_creating<P: AsRef<Path>>(path: P) -> Result<Self, Error>
+    where
+        Self: Sized;
+    fn save(&self) -> Result<(), Error>;
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Project {
+    project_name: String,
+    issues: HashMap<u64, Issue>,
+    current_id: u64,
+    created_at: DateTime<Local>,
+    updated_at: DateTime<Local>,
+    project_path: PathBuf,
+    storage_path: PathBuf,
+    db_path: PathBuf,
+}
+
+impl DbProject for Project {
+    fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Self {
+        let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
+        let db_path = storage_path.join("db.json");
+
+        Self {
+            project_name: name.as_ref().to_string(),
+            issues: HashMap::new(),
+            current_id: 0,
+            created_at: Local::now(),
+            updated_at: Local::now(),
+            project_path: project_path.as_ref().to_path_buf(),
+            storage_path,
+            db_path,
+        }
+    }
+
+    /// when db.json is 0, create new db.json.
+    fn data_load<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        db::load(path, true).map_err(Error::DbError)
+    }
+
+    fn data_load_without_creating<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        db::load(path, false).map_err(Error::DbError)
+    }
+
+    fn save(&self) -> Result<(), Error> {
+        db::save(self, &self.db_path).map_err(Error::DbError)
+    }
+}
+
+// ctrl Project
+impl Project {
+    pub fn rename<T: AsRef<str>>(&mut self, title: T) {
+        self.project_name = title.as_ref().to_string();
+    }
+
+    /// change storage_path and db_path automatic.
+    /// ⚠️ don't change already exist db.json path
+    pub fn change_project_path<P: AsRef<Path>>(&mut self, path: P) {
+        let storage_path = path.as_ref().to_path_buf().join(".local_issue");
+        let db_path = path.as_ref().join("db.json");
+
+        (self.project_path, self.storage_path, self.db_path) =
+            (path.as_ref().to_path_buf(), storage_path, db_path);
+    }
+
+    pub fn search_issue<S: AsRef<str>>(&self, target_title: S) -> Option<u64> {
+        self.issues
+            .iter()
+            .find(|f| f.1.name == *target_title.as_ref())
+            .map(|f| *f.0)
+    }
+
+    pub fn search_issues<S: AsRef<str>>(&self, target_title: S) -> Option<Vec<u64>> {
+        let a = self
+            .issues
+            .iter()
+            .filter(|f| f.1.name == *target_title.as_ref())
+            .map(|f| *f.0)
+            .collect::<Vec<u64>>();
+        if a.is_empty() { Some(a) } else { None }
+    }
+}
+
+impl Project {
+    pub fn rename_issue<T: AsRef<str>>(&mut self, id: u64, new_name: T) {
+        if let Some(f) = self.issues.get_mut(&id) {
+            f.rename(new_name);
+        }
+    }
+
+    pub fn edit_issue_due(&mut self, id: u64, due: DateTime<Local>) {
+        if let Some(f) = self.issues.get_mut(&id) {
+            f.edit_due(due);
+        }
+    }
+
+    pub fn to_open_issue(&mut self, id: u64) {
+        if let Some(f) = self.issues.get_mut(&id) {
+            f.open()
+        }
+    }
+
+    pub fn to_close_issue(&mut self, id: u64, is_resolved: bool) {
+        if let Some(f) = self.issues.get_mut(&id) {
+            f.close(is_resolved);
+        }
+    }
+
+    pub fn is_opened_issue(&self, id: u64) -> Option<bool> {
+        self.issues.get(&id).map(|f| f.is_opened())
+    }
+
+    pub fn exist(&self, id: u64) -> bool {
+        // `is_opened_issue()` return true when it exist.
+        self.is_opened_issue(id).is_some()
+    }
+}
+
+/// edit commit msg
+impl Project {
+    pub fn commit<T: AsRef<str>>(&mut self, id: u64, commit_msg: T) {
+        if let Some(f) = self.issues.get_mut(&id) {
+            f.commit(commit_msg)
+        }
+    }
+
+    pub fn rm_commit(&mut self, id: u64) {
+        if let Some(f) = self.issues.get_mut(&id) {
+            f.rm_commit(id);
+        }
+    }
+
+    pub fn show_commit(&mut self, id: u64) {
+        if let Some(f) = self.issues.get_mut(&id) {
+            f.show_message(id);
+        }
+    }
+
+    pub fn hide_commit(&mut self, id: u64) {
+        if let Some(f) = self.issues.get_mut(&id) {
+            f.hide_message(id);
+        }
+    }
+
+    /// return index
+    pub fn search_commit_position<T: AsRef<str>>(
+        &self,
+        issue_id: u64,
+        target_title: T,
+    ) -> Option<u64> {
+        self.issues
+            .get(&issue_id)
+            .and_then(|f| f.search(target_title))
+    }
+
+    /// return ref of value
+    pub fn search_commit<T: AsRef<str>>(
+        &self,
+        issue_id: u64,
+        target_title: T,
+    ) -> Option<&Messages> {
+        self.search_commit_position(issue_id, target_title)
+            .and_then(|f| self.issues.get(&f).map(|f| f.get_message()))
+    }
+
+    /// return indexes
+    pub fn search_commits_positions<T: AsRef<str>>(
+        &self,
+        issue_id: u64,
+        target_title: T,
+    ) -> Option<Vec<u64>> {
+        self.issues
+            .get(&issue_id)
+            .and_then(|f| f.search_list(target_title))
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::*;
     use std::{thread, time};
-
-    use crate::Issue;
-
-    use super::{ManageMessage, Message, Messages};
 
     #[test]
     fn messages_print_test() {
