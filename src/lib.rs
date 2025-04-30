@@ -8,8 +8,18 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[derive(Debug)]
 pub enum Error {
     DbError(db::Error),
+    SomeError,
+}
+impl Error {
+    pub fn is_file_is_zero(&self) -> bool {
+        match self {
+            Error::DbError(e) => matches!(e, db::Error::FileIsZero),
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -186,25 +196,30 @@ impl IssueTrait for Issue {
     }
 
     fn rename<S: AsRef<str>>(&mut self, new_title: S) {
+        self.update();
         self.name = new_title.as_ref().to_string();
     }
 
     /// set due_date as new_due. if it is `None`, change to Some(DateTime<Local>)
     fn edit_due(&mut self, new_due: DateTime<Local>) {
+        self.update();
         self.due_date = Some(new_due);
     }
 
     /// ⚠️ this fn remove message in Vec and rewrite index.
     /// recommend hide_message().
     fn rm_commit(&mut self, id: u64) {
+        self.update();
         self.messages.rm_message(id);
     }
 
     fn hide_message(&mut self, id: u64) {
+        self.update();
         self.messages.hide_message_by_id(id);
     }
 
     fn show_message(&mut self, id: u64) {
+        self.update();
         self.messages.show_message_by_id(id);
     }
 
@@ -230,6 +245,7 @@ impl IssueTrait for Issue {
     }
 
     fn close(&mut self, is_resolved: bool) {
+        self.update();
         if is_resolved {
             self.status = Status::Closed(Closed::Resolved);
         } else {
@@ -238,6 +254,7 @@ impl IssueTrait for Issue {
     }
 
     fn open(&mut self) {
+        self.update();
         self.status = Status::Open;
     }
 
@@ -284,6 +301,37 @@ impl Issue {
             String::new()
         }
     }
+    pub fn fmt_only_prop(&self) -> String {
+        let issue_info = format!(
+            "issue: {}\n  status:\t{}\n  created:\t{}\n  update_at:\t{}\n  due date:\t{}",
+            self.name,
+            self.status,
+            self.created_at.to_rfc2822(),
+            self.updated_at.to_rfc2822(),
+            self.due_date
+                .map(|f| f.to_rfc2822())
+                .unwrap_or("None".to_string())
+        );
+        format!("{}\n\n", issue_info)
+    }
+
+    pub fn fmt_only_open_prop(&self) -> String {
+        if self.is_opened() {
+            let issue_info = format!(
+                "issue:\t\t{}\nstatus:\t\t{}\ncreated:\t{}\nupdate_at:\t{}\ndue date:\t{}",
+                self.name,
+                self.status,
+                self.created_at.to_rfc2822(),
+                self.updated_at.to_rfc2822(),
+                self.due_date
+                    .map(|f| f.to_rfc2822())
+                    .unwrap_or("None".to_string())
+            );
+            format!("{}\n\n", issue_info)
+        } else {
+            String::new()
+        }
+    }
 }
 
 pub trait DbProject {
@@ -326,11 +374,19 @@ impl DbProject for Project {
         }
     }
 
-    /// when db.json is 0, create new db.json.
+    /// ⚠️ when db.json is 0, create new json.
+    /// At that time, use Project::new().
+    ///
+    /// ## args
+    ///
+    /// * path: db path
     fn data_load<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         db::load(path, true).map_err(Error::DbError)
     }
 
+    /// ## args
+    ///
+    /// * path: db path
     fn data_load_without_creating<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         db::load(path, false).map_err(Error::DbError)
     }
@@ -346,15 +402,15 @@ impl Project {
         self.project_name = title.as_ref().to_string();
     }
 
-    /// change storage_path and db_path automatic.
-    /// ⚠️ don't change already exist db.json path
-    pub fn change_project_path<P: AsRef<Path>>(&mut self, path: P) {
-        let storage_path = path.as_ref().to_path_buf().join(".local_issue");
-        let db_path = path.as_ref().join("db.json");
+    // / change storage_path and db_path automatic.
+    // / ⚠️ don't change already exist db.json path
+    // fn change_project_path<P: AsRef<Path>>(&mut self, path: P) {
+    //     let storage_path = path.as_ref().to_path_buf().join(".local_issue");
+    //     let db_path = path.as_ref().join("db.json");
 
-        (self.project_path, self.storage_path, self.db_path) =
-            (path.as_ref().to_path_buf(), storage_path, db_path);
-    }
+    //     (self.project_path, self.storage_path, self.db_path) =
+    //         (path.as_ref().to_path_buf(), storage_path, db_path);
+    // }
 
     pub fn search_issue<S: AsRef<str>>(&self, target_title: S) -> Option<u64> {
         self.issues
@@ -375,8 +431,13 @@ impl Project {
 }
 
 impl Project {
-    pub fn rename_issue<T: AsRef<str>>(&mut self, id: u64, new_name: T) {
-        if let Some(f) = self.issues.get_mut(&id) {
+    pub fn add_issue<T: AsRef<str>>(&mut self, new_name: T) {
+        self.current_id += 1;
+        self.issues.insert(self.current_id, Issue::new(new_name));
+    }
+
+    pub fn rename_issue<T: AsRef<str>>(&mut self, issue_id: u64, new_name: T) {
+        if let Some(f) = self.issues.get_mut(&issue_id) {
             f.rename(new_name);
         }
     }
@@ -387,51 +448,53 @@ impl Project {
         }
     }
 
-    pub fn to_open_issue(&mut self, id: u64) {
-        if let Some(f) = self.issues.get_mut(&id) {
+    pub fn to_open_issue(&mut self, issue_id: u64) {
+        if let Some(f) = self.issues.get_mut(&issue_id) {
             f.open()
         }
     }
 
-    pub fn to_close_issue(&mut self, id: u64, is_resolved: bool) {
-        if let Some(f) = self.issues.get_mut(&id) {
+    pub fn to_close_issue(&mut self, issue_id: u64, is_resolved: bool) {
+        if let Some(f) = self.issues.get_mut(&issue_id) {
             f.close(is_resolved);
         }
     }
 
-    pub fn is_opened_issue(&self, id: u64) -> Option<bool> {
-        self.issues.get(&id).map(|f| f.is_opened())
+    pub fn is_opened_issue(&self, issue_id: u64) -> Option<bool> {
+        self.issues.get(&issue_id).map(|f| f.is_opened())
     }
 
-    pub fn exist(&self, id: u64) -> bool {
+    pub fn exist(&self, issue_id: u64) -> bool {
         // `is_opened_issue()` return true when it exist.
-        self.is_opened_issue(id).is_some()
+        self.is_opened_issue(issue_id).is_some()
     }
 }
 
 /// edit commit msg
 impl Project {
-    pub fn commit<T: AsRef<str>>(&mut self, id: u64, commit_msg: T) {
-        if let Some(f) = self.issues.get_mut(&id) {
+    pub fn commit<T: AsRef<str>>(&mut self, issue_id: u64, commit_msg: T) {
+        if let Some(f) = self.issues.get_mut(&issue_id) {
             f.commit(commit_msg)
         }
     }
 
-    pub fn rm_commit(&mut self, id: u64) {
-        if let Some(f) = self.issues.get_mut(&id) {
-            f.rm_commit(id);
+    /// ⚠️ this fn remove message in Vec and rewrite index.
+    /// recommend hide_message().
+    pub fn rm_commit(&mut self, issue_id: u64, commit_id: u64) {
+        if let Some(f) = self.issues.get_mut(&issue_id) {
+            f.rm_commit(commit_id);
         }
     }
 
-    pub fn show_commit(&mut self, id: u64) {
-        if let Some(f) = self.issues.get_mut(&id) {
-            f.show_message(id);
+    pub fn to_show_commit(&mut self, commit_id: u64, issue_id: u64) {
+        if let Some(f) = self.issues.get_mut(&issue_id) {
+            f.show_message(commit_id);
         }
     }
 
-    pub fn hide_commit(&mut self, id: u64) {
-        if let Some(f) = self.issues.get_mut(&id) {
-            f.hide_message(id);
+    pub fn to_hide_commit(&mut self, commit_id: u64, issue_id: u64) {
+        if let Some(f) = self.issues.get_mut(&issue_id) {
+            f.hide_message(commit_id);
         }
     }
 
@@ -468,10 +531,51 @@ impl Project {
     }
 }
 
+impl Display for Project {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let sub_prop = format!(
+            "  created at: {}\n  updated at: {}\n  Path: {}",
+            self.created_at.to_rfc2822(),
+            self.updated_at.to_rfc2822(),
+            self.project_path.to_string_lossy(),
+        );
+        let iss = self
+            .issues
+            .iter()
+            .map(|f| (f.0, f.1))
+            .collect::<Vec<(&u64, &Issue)>>()
+            .iter()
+            .map(|f| format!("#{}: {}", f.0, f.1))
+            .collect::<String>();
+
+        let r = format!("Project: {}\n{}\n\n{}", self.project_name, sub_prop, iss);
+        write!(f, "{}", r)
+    }
+}
+
+impl Project {
+    pub fn fmt_only_prop(&self) -> String {
+        self.issues.iter().map(|f| f.1.fmt_only_prop()).collect()
+    }
+    pub fn fmt_only_open(&self) -> String {
+        self.issues.iter().map(|f| f.1.fmt_only_open()).collect()
+    }
+    pub fn fmt_only_open_prop(&self) -> String {
+        self.issues
+            .iter()
+            .map(|f| f.1.fmt_only_open_prop())
+            .collect()
+    }
+}
+
+pub fn db_path(work_path: PathBuf) -> PathBuf {
+    work_path.join(".local_issue").join("db.json")
+}
+
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use std::{thread, time};
+    use std::{env, thread, time};
 
     #[test]
     fn messages_print_test() {
@@ -521,5 +625,62 @@ mod tests {
         for i in &l {
             println!("{}", i);
         }
+    }
+
+    #[test]
+    fn project_show_test() {
+        let mut db = Project::new("test", "project_path");
+        db.add_issue("1");
+        db.add_issue("2");
+        println!("{}", db);
+    }
+
+    #[test]
+    fn db_db_test() {
+        let cd = env::current_dir().unwrap();
+        let work_path = env::current_dir().unwrap().join("test/test");
+        let db_path = work_path.join("db.json");
+
+        let loaded_db_without_create = Project::data_load_without_creating(cd.join("hoge"));
+        assert!(loaded_db_without_create.is_err());
+
+        let loaded_db = Project::data_load(db_path);
+        let mut loaded_project = match loaded_db {
+            Ok(v) => v,
+            Err(e) => {
+                if e.is_file_is_zero() {
+                    Project::new("name", work_path)
+                } else {
+                    panic!();
+                }
+            }
+        };
+
+        println!("{}", loaded_project);
+
+        // let new_issue = Issue::new("name");
+
+        loaded_project.add_issue("new1");
+        println!("{}", loaded_project);
+
+        println!("--------------------------");
+
+        loaded_project.commit(1, "commit_msg");
+        loaded_project.commit(1, "commit_msg2");
+        thread::sleep(time::Duration::from_secs(1));
+        loaded_project.commit(1, "commit_msg3");
+
+        loaded_project.add_issue("2");
+        // loaded_project.hi
+
+        println!("{}", loaded_project.fmt_only_open_prop());
+    }
+
+    #[test]
+    fn hoge() {
+        println!(
+            "{:?}",
+            env::current_dir().unwrap().join("test/test").exists()
+        );
     }
 }
