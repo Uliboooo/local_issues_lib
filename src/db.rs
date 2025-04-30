@@ -13,6 +13,12 @@ pub enum Error {
     FileIsZero,
 }
 
+impl Error {
+    pub fn is_file_is_zero(&self) -> bool {
+        matches!(self, Error::FileIsZero)
+    }
+}
+
 /// Arg's `create` use as `OpenOptions.create()`
 pub fn load<T: DeserializeOwned, P: AsRef<Path>>(path: P, create: bool) -> Result<T, Error> {
     let mut f = OpenOptions::new()

@@ -1,4 +1,5 @@
 mod db;
+mod config;
 
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
@@ -170,6 +171,7 @@ pub struct Issue {
     created_at: DateTime<Local>,
     updated_at: DateTime<Local>,
     due_date: Option<DateTime<Local>>,
+    // users: Users,
 }
 
 impl Issue {
