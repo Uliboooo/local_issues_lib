@@ -1,59 +1,39 @@
-use crate::db;
+use crate::users::{ManageUsers, User, Users};
+use crate::{VERSION, db};
 use home::home_dir;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf};
+use std::{fmt::Display, path::PathBuf};
+use uuid::{self, Uuid};
 
 #[derive(Debug)]
 pub enum Error {
     DbError(db::Error),
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-struct User {
-    name: String,
-    // id: u64,
-}
-
-#[derive(Debug, Deserialize, Serialize, Default)]
-pub struct Users {
-    list: HashMap<String, User>,
-    // current_id: u64,
-}
-
-impl Users {
-    fn new() -> Self {
-        Self {
-            list: HashMap::new(),
-            // current_id: 0,
-        }
-    }
-
-    fn add_user<S: AsRef<str>>(&mut self, user_name: S) {
-        // self.current_id += 1;
-        self.list.insert(
-            user_name.as_ref().to_string(),
-            User {
-                name: user_name.as_ref().to_string(),
-                // id: self.current_id,
-            },
-        );
-    }
-}
-
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct Config {
+    lib_version: String,
     users: Users,
 }
 
-impl Config {
-    pub fn add_user<T: AsRef<str>>(&mut self, name: T) {
-        self.users.add_user(name);
+impl ManageUsers for Config {
+    fn add_user<T: AsRef<str>>(&mut self, name: T) -> User {
+        self.users.add_user(name)
     }
+
+    fn rm_user(&mut self, id: Uuid) {
+        self.users.rm_user(id);
+    }
+}
+
+impl Config {
     pub fn new() -> Self {
         Self {
             users: Users::new(),
+            lib_version: VERSION.to_string(),
         }
     }
+
     pub fn load() -> Result<Self, Error> {
         match db::load(get_config_path().unwrap(), true) {
             Ok(v) => Ok(v),
@@ -65,10 +45,16 @@ impl Config {
                 }
             }
         }
-        // a
     }
     pub fn save(&self) {
         db::save(self, get_config_path().unwrap()).unwrap();
+    }
+}
+
+impl Display for Config {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let fm = serde_json::to_string(self).unwrap().to_string();
+        write!(f, "{}", fm)
     }
 }
 
@@ -81,6 +67,8 @@ fn get_config_path() -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    use crate::config::ManageUsers;
+
     use super::Config;
 
     #[test]
@@ -92,11 +80,11 @@ mod tests {
     #[test]
     fn test_config_save() {
         let mut new_config = Config::new();
-        new_config.add_user("hoge");
-        new_config.add_user("hogee");
+        new_config.add_user("name");
+        new_config.add_user("name1");
         new_config.save();
 
         let loaded = Config::load();
-        println!("{:?}", loaded);
+        println!("{}", loaded.unwrap());
     }
 }

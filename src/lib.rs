@@ -1,5 +1,7 @@
+pub mod config;
 mod db;
-mod config;
+mod users;
+// mod build;
 
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
@@ -8,6 +10,8 @@ use std::{
     fmt::Display,
     path::{Path, PathBuf},
 };
+
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug)]
 pub enum Error {
@@ -684,5 +688,10 @@ mod tests {
             "{:?}",
             env::current_dir().unwrap().join("test/test").exists()
         );
+    }
+
+    #[test]
+    fn cf_version() {
+        println!("{}", VERSION);
     }
 }
