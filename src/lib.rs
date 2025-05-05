@@ -5,7 +5,6 @@ mod users;
 // mod build;
 
 use chrono::{DateTime, Local};
-use db::load;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -19,6 +18,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub enum Error {
     DbError(db::Error),
     SomeError,
+    NotFound,
 }
 impl Error {
     pub fn is_file_is_zero(&self) -> bool {
@@ -393,7 +393,12 @@ impl DbProject for Project {
     where
         Self: Sized,
     {
-        db::load::<Project, _>(project_path, false).map_err(Error::DbError)
+        let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
+        let db_path = storage_path.join("db.json");
+        if !storage_path.exists() || !db_path.exists() {
+            return Err(Error::NotFound);
+        }
+        db::load::<Project, _>(db_path, false).map_err(Error::DbError)
     }
 
     /// ⚠️ when db.json is 0, create new json.
