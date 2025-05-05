@@ -347,6 +347,9 @@ impl Issue {
 
 pub trait DbProject {
     fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Self;
+    fn open<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Option<Self>
+    where
+        Self: Sized;
     fn data_load<P: AsRef<Path>>(path: P) -> Result<Self, Error>
     where
         Self: Sized;
@@ -383,6 +386,14 @@ impl DbProject for Project {
             storage_path,
             db_path,
         }
+    }
+
+    /// if path don't init, return None.
+    fn open<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        db::load::<Project, _>(project_path, false).ok()
     }
 
     /// ⚠️ when db.json is 0, create new json.
