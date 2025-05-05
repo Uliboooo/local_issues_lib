@@ -5,6 +5,7 @@ mod users;
 // mod build;
 
 use chrono::{DateTime, Local};
+use db::load;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -347,7 +348,7 @@ impl Issue {
 
 pub trait DbProject {
     fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Self;
-    fn open<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Option<Self>
+    fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
     where
         Self: Sized;
     fn data_load<P: AsRef<Path>>(path: P) -> Result<Self, Error>
@@ -388,12 +389,11 @@ impl DbProject for Project {
         }
     }
 
-    /// if path don't init, return None.
-    fn open<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Option<Self>
+    fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
     where
         Self: Sized,
     {
-        db::load::<Project, _>(project_path, false).ok()
+        db::load::<Project, _>(project_path, false).map_err(Error::DbError)
     }
 
     /// ⚠️ when db.json is 0, create new json.
