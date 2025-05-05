@@ -1,5 +1,6 @@
 pub mod config;
 mod db;
+pub mod printer;
 mod users;
 // mod build;
 
@@ -121,13 +122,17 @@ impl Display for Messages {
     }
 }
 
+pub trait StatusT {
+    fn is_opened(&self) -> bool;
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 enum Status {
     Open,
     Closed(Closed),
 }
 
-impl Status {
+impl StatusT for Status {
     fn is_opened(&self) -> bool {
         matches!(self, Status::Open)
     }
