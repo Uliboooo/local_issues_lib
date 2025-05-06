@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    fs::OpenOptions,
+    fs::{self, OpenOptions},
     io::{self, Read, Write},
     path::Path,
 };
@@ -11,6 +11,7 @@ use serde::{Serialize, de::DeserializeOwned};
 pub enum Error {
     Io(io::Error),
     Serde(serde_json::Error),
+    /// emty file
     FileIsZero,
 }
 
@@ -39,6 +40,11 @@ impl Error {
 
 /// Arg's `create` use as `OpenOptions.create()`
 pub fn load<T: DeserializeOwned, P: AsRef<Path>>(path: P, create: bool) -> Result<T, Error> {
+    if path.as_ref().parent().unwrap().exists() || create {
+        fs::create_dir_all(path.as_ref().parent().unwrap()).map_err(Error::Io)?;
+        println!("created.");
+    }
+
     let mut f = OpenOptions::new()
         .read(true)
         .create(create)

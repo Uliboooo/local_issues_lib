@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fmt::Display,
+    io,
     path::{Path, PathBuf},
 };
 
@@ -19,6 +20,7 @@ pub enum Error {
     DbError(db::Error),
     SomeError,
     NotFound,
+    Io(io::Error),
 }
 
 impl Display for Error {
@@ -27,6 +29,7 @@ impl Display for Error {
             Error::DbError(e) => write!(f, "db error: {}", e),
             Error::SomeError => write!(f, "some error. please retry."),
             Error::NotFound => write!(f, "not found"),
+            Error::Io(error) => write!(f, "io error: {}", error),
         }
     }
 }
@@ -400,17 +403,18 @@ impl DbProject for Project {
         }
     }
 
-    /// return Project if db exist(init).
     fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
     where
         Self: Sized,
     {
         let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
         let db_path = storage_path.join("db.json");
-        if !storage_path.exists() || !db_path.exists() {
-            return Err(Error::NotFound);
-        }
-        db::load::<Project, _>(db_path, false).map_err(Error::DbError)
+
+
+        // if !storage_path.exists() || !db_path.exists() {
+        //     return Err(Error::NotFound);
+        // }
+        db::load::<Project, _>(db_path, true).map_err(Error::DbError)
     }
 
     /// ⚠️ when db.json is 0, create new json.
@@ -730,5 +734,24 @@ mod tests {
     #[test]
     fn cf_version() {
         println!("{}", VERSION);
+    }
+
+    #[test]
+    fn hogee() -> Result<(), Error> {
+        let work_path = env::current_dir()
+            .unwrap()
+            .join("test_resource")
+            .join("tests");
+        std::fs::create_dir_all(&work_path).map_err(Error::Io)?;
+        if work_path.exists() {
+            println!("ex");
+        }
+
+        let mut db = Project::open(work_path).unwrap();
+
+        println!("res: {:?}", db);
+
+        db.add_issue("new_name");
+        Ok(())
     }
 }

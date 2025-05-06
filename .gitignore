@@ -4,3 +4,4 @@ db/
 _*
 .DS_Store
 test/
+test_resource/
