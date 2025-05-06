@@ -17,6 +17,13 @@ impl Error {
     pub fn is_file_is_zero(&self) -> bool {
         matches!(self, Error::FileIsZero)
     }
+    
+    pub fn not_found(&self) -> bool {
+        match self {
+            Error::Io(error) => error.kind() == io::ErrorKind::NotFound,
+            _ => false,
+        }
+    }
 }
 
 /// Arg's `create` use as `OpenOptions.create()`
@@ -30,6 +37,7 @@ pub fn load<T: DeserializeOwned, P: AsRef<Path>>(path: P, create: bool) -> Resul
         .map_err(Error::Io)?;
     let mut con = String::new();
     f.read_to_string(&mut con).map_err(Error::Io)?;
+
     if con.is_empty() {
         Err(Error::FileIsZero)
     } else {
