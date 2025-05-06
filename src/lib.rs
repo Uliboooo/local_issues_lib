@@ -389,6 +389,7 @@ impl DbProject for Project {
         }
     }
 
+    /// return Project if db exist(init).
     fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
     where
         Self: Sized,
@@ -494,6 +495,10 @@ impl Project {
     pub fn exist(&self, issue_id: u64) -> bool {
         // `is_opened_issue()` return true when it exist.
         self.is_opened_issue(issue_id).is_some()
+    }
+
+    pub fn remove_issue(&mut self, issue_id: u64) {
+        self.issues.remove(&issue_id);
     }
 }
 
