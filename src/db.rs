@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     fs::OpenOptions,
     io::{self, Read, Write},
     path::Path,
@@ -13,11 +14,21 @@ pub enum Error {
     FileIsZero,
 }
 
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::Io(e) => write!(f, "io error: {}", e),
+            Error::Serde(e) => write!(f, "serde error: {}", e),
+            Error::FileIsZero => write!(f, "file is zero"),
+        }
+    }
+}
+
 impl Error {
     pub fn is_file_is_zero(&self) -> bool {
         matches!(self, Error::FileIsZero)
     }
-    
+
     pub fn not_found(&self) -> bool {
         match self {
             Error::Io(error) => error.kind() == io::ErrorKind::NotFound,

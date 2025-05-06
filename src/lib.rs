@@ -20,6 +20,17 @@ pub enum Error {
     SomeError,
     NotFound,
 }
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::DbError(e) => write!(f, "db error: {}", e),
+            Error::SomeError => write!(f, "some error. please retry."),
+            Error::NotFound => write!(f, "not found"),
+        }
+    }
+}
+
 impl Error {
     pub fn is_file_is_zero(&self) -> bool {
         match self {
