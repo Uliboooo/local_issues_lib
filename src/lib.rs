@@ -365,12 +365,15 @@ pub trait DbProject {
     fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
     where
         Self: Sized;
-    fn data_load<P: AsRef<Path>>(path: P) -> Result<Self, Error>
+    fn open_without_creating<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
     where
         Self: Sized;
-    fn data_load_without_creating<P: AsRef<Path>>(path: P) -> Result<Self, Error>
-    where
-        Self: Sized;
+    // fn data_load<P: AsRef<Path>>(path: P) -> Result<Self, Error>
+    // where
+    //     Self: Sized;
+    // fn data_load_without_creating<P: AsRef<Path>>(path: P) -> Result<Self, Error>
+    // where
+    //     Self: Sized;
     fn save(&self) -> Result<(), Error>;
 }
 
@@ -403,6 +406,20 @@ impl DbProject for Project {
         }
     }
 
+    /// Opens an existing project from the specified path.
+    ///
+    /// # Arguments
+    ///
+    /// * `project_path` - A Project folder path.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Project)` - On successfully loading the project.
+    /// * `Err(Error)` - If the project cannot be found or if loading fails.
+    ///
+    /// # Errors
+    ///
+    /// This function returns an `Error::DbError` if the database cannot be loaded.
     fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
     where
         Self: Sized,
@@ -410,29 +427,36 @@ impl DbProject for Project {
         let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
         let db_path = storage_path.join("db.json");
 
-
-        // if !storage_path.exists() || !db_path.exists() {
-        //     return Err(Error::NotFound);
-        // }
         db::load::<Project, _>(db_path, true).map_err(Error::DbError)
     }
 
-    /// ⚠️ when db.json is 0, create new json.
-    /// At that time, use Project::new().
-    ///
-    /// ## args
-    ///
-    /// * path: db path
-    fn data_load<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        db::load(path, true).map_err(Error::DbError)
+    /// if db.json notfound, return Error
+    fn open_without_creating<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
+        let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
+        let db_path = storage_path.join("db.json");
+
+        db::load::<Project, _>(db_path, false).map_err(Error::DbError)
     }
 
-    /// ## args
-    ///
-    /// * path: db path
-    fn data_load_without_creating<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        db::load(path, false).map_err(Error::DbError)
-    }
+    // /// ⚠️ when db.json is 0, create new json.
+    // /// At that time, use Project::new().
+    // ///
+    // /// ## args
+    // ///
+    // /// * path: db path
+    // fn data_load<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+    //     db::load(path, true).map_err(Error::DbError)
+    // }
+
+    // /// ## args
+    // ///
+    // /// * path: db path
+    // fn data_load_without_creating<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+    //     db::load(path, false).map_err(Error::DbError)
+    // }
 
     fn save(&self) -> Result<(), Error> {
         db::save(self, &self.db_path).map_err(Error::DbError)
@@ -683,47 +707,6 @@ mod tests {
     }
 
     #[test]
-    fn db_db_test() {
-        let cd = env::current_dir().unwrap();
-        let work_path = env::current_dir().unwrap().join("test/test");
-        let db_path = work_path.join("db.json");
-
-        let loaded_db_without_create = Project::data_load_without_creating(cd.join("hoge"));
-        assert!(loaded_db_without_create.is_err());
-
-        let loaded_db = Project::data_load(db_path);
-        let mut loaded_project = match loaded_db {
-            Ok(v) => v,
-            Err(e) => {
-                if e.is_file_is_zero() {
-                    Project::new("name", work_path)
-                } else {
-                    panic!();
-                }
-            }
-        };
-
-        println!("{}", loaded_project);
-
-        // let new_issue = Issue::new("name");
-
-        loaded_project.add_issue("new1");
-        println!("{}", loaded_project);
-
-        println!("--------------------------");
-
-        loaded_project.commit(1, "commit_msg");
-        loaded_project.commit(1, "commit_msg2");
-        thread::sleep(time::Duration::from_secs(1));
-        loaded_project.commit(1, "commit_msg3");
-
-        loaded_project.add_issue("2");
-        // loaded_project.hi
-
-        println!("{}", loaded_project.fmt_only_open_prop());
-    }
-
-    #[test]
     fn hoge() {
         println!(
             "{:?}",
@@ -737,7 +720,7 @@ mod tests {
     }
 
     #[test]
-    fn hogee() -> Result<(), Error> {
+    fn pj_tests() -> Result<(), Error> {
         let work_path = env::current_dir()
             .unwrap()
             .join("test_resource")

@@ -42,7 +42,6 @@ impl Error {
 pub fn load<T: DeserializeOwned, P: AsRef<Path>>(path: P, create: bool) -> Result<T, Error> {
     if path.as_ref().parent().unwrap().exists() || create {
         fs::create_dir_all(path.as_ref().parent().unwrap()).map_err(Error::Io)?;
-        println!("created.");
     }
 
     let mut f = OpenOptions::new()
