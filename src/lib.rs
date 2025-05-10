@@ -2,7 +2,6 @@ pub mod config;
 mod db;
 // pub mod printer;
 mod users;
-// mod build;
 
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
@@ -14,6 +13,7 @@ use std::{
 };
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const DB_NAME: &str = "db.json";
 
 #[derive(Debug)]
 pub enum Error {
@@ -362,18 +362,15 @@ impl Issue {
 
 pub trait DbProject {
     fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Self;
-    fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
+    fn open<P: AsRef<Path>, S: AsRef<str>>(project_path: P, name: S) -> Result<Self, Error>
     where
         Self: Sized;
-    fn open_without_creating<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
+    fn open_without_creating<P: AsRef<Path>, S: AsRef<str>>(
+        project_path: P,
+        name: S,
+    ) -> Result<Self, Error>
     where
         Self: Sized;
-    // fn data_load<P: AsRef<Path>>(path: P) -> Result<Self, Error>
-    // where
-    //     Self: Sized;
-    // fn data_load_without_creating<P: AsRef<Path>>(path: P) -> Result<Self, Error>
-    // where
-    //     Self: Sized;
     fn save(&self) -> Result<(), Error>;
 }
 
@@ -390,9 +387,11 @@ pub struct Project {
 }
 
 impl DbProject for Project {
+    /// * create `storage_path` or `db_path` based on `project_path`.
+    /// * and times info generated based on the current time.
     fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Self {
         let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
-        let db_path = storage_path.join("db.json");
+        let db_path = storage_path.join(DB_NAME);
 
         Self {
             project_name: name.as_ref().to_string(),
@@ -406,58 +405,48 @@ impl DbProject for Project {
         }
     }
 
-    /// Opens an existing project from the specified path.
-    ///
-    /// # Arguments
-    ///
-    /// * `project_path` - A Project folder path.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(Project)` - On successfully loading the project.
-    /// * `Err(Error)` - If the project cannot be found or if loading fails.
-    ///
-    /// # Errors
-    ///
-    /// This function returns an `Error::DbError` if the database cannot be loaded.
-    fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
+    /// return loaded `Project` if file(db) is empty, create new Project based on arguments.
+    fn open<P: AsRef<Path>, S: AsRef<str>>(project_path: P, name: S) -> Result<Self, Error>
     where
         Self: Sized,
     {
         let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
-        let db_path = storage_path.join("db.json");
+        let db_path = storage_path.join(DB_NAME);
 
-        db::load::<Project, _>(db_path, true).map_err(Error::DbError)
+        db::load::<Project, _>(db_path, true)
+            .or_else(|e| {
+                if e.is_file_is_zero() {
+                    Ok(Project::new(name, project_path))
+                } else {
+                    Err(e)
+                }
+            })
+            .map_err(Error::DbError)
     }
 
     /// if db.json notfound, return Error
-    fn open_without_creating<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
+    fn open_without_creating<P: AsRef<Path>, S: AsRef<str>>(
+        project_path: P,
+        name: S,
+    ) -> Result<Self, Error>
     where
         Self: Sized,
     {
         let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
-        let db_path = storage_path.join("db.json");
+        let db_path = storage_path.join(DB_NAME);
 
-        db::load::<Project, _>(db_path, false).map_err(Error::DbError)
+        db::load::<Project, _>(db_path, false)
+            .or_else(|e| {
+                if e.is_file_is_zero() {
+                    Ok(Project::new(name, project_path))
+                } else {
+                    Err(e)
+                }
+            })
+            .map_err(Error::DbError)
     }
 
-    // /// ⚠️ when db.json is 0, create new json.
-    // /// At that time, use Project::new().
-    // ///
-    // /// ## args
-    // ///
-    // /// * path: db path
-    // fn data_load<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-    //     db::load(path, true).map_err(Error::DbError)
-    // }
-
-    // /// ## args
-    // ///
-    // /// * path: db path
-    // fn data_load_without_creating<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-    //     db::load(path, false).map_err(Error::DbError)
-    // }
-
+    /// save to db based on a path of Self
     fn save(&self) -> Result<(), Error> {
         db::save(self, &self.db_path).map_err(Error::DbError)
     }
@@ -468,16 +457,6 @@ impl Project {
     pub fn rename<T: AsRef<str>>(&mut self, title: T) {
         self.project_name = title.as_ref().to_string();
     }
-
-    // / change storage_path and db_path automatic.
-    // / ⚠️ don't change already exist db.json path
-    // fn change_project_path<P: AsRef<Path>>(&mut self, path: P) {
-    //     let storage_path = path.as_ref().to_path_buf().join(".local_issue");
-    //     let db_path = path.as_ref().join("db.json");
-
-    //     (self.project_path, self.storage_path, self.db_path) =
-    //         (path.as_ref().to_path_buf(), storage_path, db_path);
-    // }
 
     pub fn search_issue<S: AsRef<str>>(&self, target_title: S) -> Option<u64> {
         self.issues
@@ -640,7 +619,7 @@ impl Project {
 }
 
 pub fn db_path(work_path: PathBuf) -> PathBuf {
-    work_path.join(".local_issue").join("db.json")
+    work_path.join(".local_issue").join(DB_NAME)
 }
 
 #[cfg(test)]
@@ -724,17 +703,17 @@ mod tests {
         let work_path = env::current_dir()
             .unwrap()
             .join("test_resource")
-            .join("tests");
+            .join("test");
         std::fs::create_dir_all(&work_path).map_err(Error::Io)?;
         if work_path.exists() {
-            println!("ex");
+            println!("ex{:?}", work_path);
         }
 
-        let mut db = Project::open(work_path).unwrap();
+        let db = Project::open(work_path, "test").unwrap();
 
         println!("res: {:?}", db);
 
-        db.add_issue("new_name");
+        // db.add_issue("new_name");
         Ok(())
     }
 }
