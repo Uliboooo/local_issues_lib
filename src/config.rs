@@ -1,41 +1,30 @@
-use crate::users::{ManageUsers, User, Users};
-use crate::{VERSION, db};
+use crate::users::Users;
+use crate::{VERSION, storage};
 use home::home_dir;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, path::PathBuf};
-use uuid::{self, Uuid};
 
 #[derive(Debug)]
 pub enum Error {
-    DbError(db::Error),
+    DbError(storage::Error),
 }
 
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct Config {
-    lib_version: String,
-    users: Users,
-}
-
-impl ManageUsers for Config {
-    fn add_user<T: AsRef<str>>(&mut self, name: T) -> User {
-        self.users.add_user(name)
-    }
-
-    fn rm_user(&mut self, id: Uuid) {
-        self.users.rm_user(id);
-    }
+    pub version: String,
+    pub users: Users,
 }
 
 impl Config {
     pub fn new() -> Self {
         Self {
             users: Users::new(),
-            lib_version: VERSION.to_string(),
+            version: VERSION.to_string(),
         }
     }
 
     pub fn load() -> Result<Self, Error> {
-        match db::load(get_config_path().unwrap(), true) {
+        match storage::load(get_config_path().unwrap(), true) {
             Ok(v) => Ok(v),
             Err(e) => {
                 if e.is_file_is_zero() {
@@ -47,7 +36,14 @@ impl Config {
         }
     }
     pub fn save(&self) {
-        db::save(self, get_config_path().unwrap()).unwrap();
+        storage::save(self, get_config_path().unwrap()).unwrap();
+    }
+}
+
+impl Config {
+    /// this function don't save() automatically.please use `.save()`
+    pub fn edit_users(&mut self, new_users: Users) {
+        self.users = new_users;
     }
 }
 
@@ -62,29 +58,5 @@ fn get_config_path() -> Option<PathBuf> {
     if cfg!(test) {
         return Some(PathBuf::from("test/config_test/").join("config.json"));
     }
-    home_dir().map(|f| f.join(".local_issues_lib").join("config.json"))
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::config::ManageUsers;
-
-    use super::Config;
-
-    #[test]
-    fn test_config_load() {
-        let config = Config::load();
-        println!("{:?}", config);
-    }
-
-    #[test]
-    fn test_config_save() {
-        let mut new_config = Config::new();
-        new_config.add_user("name");
-        new_config.add_user("name1");
-        new_config.save();
-
-        let loaded = Config::load();
-        println!("{}", loaded.unwrap());
-    }
+    home_dir().map(|f| f.join(".local_issues").join("config.json"))
 }

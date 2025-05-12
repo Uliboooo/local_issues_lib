@@ -11,7 +11,7 @@ use serde::{Serialize, de::DeserializeOwned};
 pub enum Error {
     Io(io::Error),
     Serde(serde_json::Error),
-    /// emty file
+    /// empty file
     FileIsZero,
 }
 

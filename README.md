@@ -1,16 +1,24 @@
 # local issues lib
 
+**There is a high possibility that many breaking changes will occur before reaching version 1.0.**
+
 ## Local Issues Lib
 
 this lib provides feature that manage issues like a ["github issue"](https://github.com/Uliboooo/local_issues_lib/issues).
+
+## Config
+
+save to `home_dir/.local_issues/config.json`.
+
+details info is in https://github.com/Uliboooo/local_issues_lib/blob/main/Config.md
 
 ## RoadMap
 
 ### v1 ~
 
-- [ ] basic feats
-- [ ] feat: Config
-- [ ] Users and author
+1. [ ] basic feats
+1. [ ] Users and author
+1. [ ] feat: Config
 
 ### v2 ~
 
