@@ -2,6 +2,12 @@
 
 **There is a high possibility that many breaking changes will occur before reaching version 1.0.**
 
+## notes
+
+* printer module is still incomplete.
+
+more tasks [here](https://github.com/Uliboooo/local_issues_lib/blob/main/Tasks.md)
+
 ## Local Issues Lib
 
 this lib provides feature that manage issues like a ["github issue"](https://github.com/Uliboooo/local_issues_lib/issues).
@@ -10,19 +16,19 @@ this lib provides feature that manage issues like a ["github issue"](https://git
 
 save to `home_dir/.local_issues/config.json`.
 
-details info is in https://github.com/Uliboooo/local_issues_lib/blob/main/Config.md
+details info is in [here](https://github.com/Uliboooo/local_issues_lib/blob/main/reference/Config.md)
 
 ## RoadMap
 
 ### v1 ~
 
-1. [ ] basic feats
-1. [ ] Users and author
-1. [ ] feat: Config
+* [ ] basic feats
+* [ ] Users and author
+* [ ] feat: Config
 
 ### v2 ~
 
-- [ ] feat: save to md file. 
+* [ ] feat: save to md file. 
 
 ## Project Structure
 

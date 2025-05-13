@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display};
 use uuid::Uuid;
 
-trait IsUser {}
-impl IsUser for User {}
+// trait IsUser {}
+// impl IsUser for User {}
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct User {
@@ -33,13 +33,13 @@ impl Display for User {
     }
 }
 
-pub trait ManageUsers {
-    fn add_user<T: Into<User>>(&mut self, name: T);
-    fn rm_user(&mut self, id: Uuid);
-    fn users_list(&self) -> Vec<String>;
-}
+// pub trait ManageUsers {
+//     fn add_user<T: Into<User>>(&mut self, name: T);
+//     fn rm_user(&mut self, id: Uuid);
+//     fn users_list(&self) -> Vec<String>;
+// }
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default, Clone)]
 pub struct Users {
     list: HashMap<Uuid, User>,
 }
@@ -52,18 +52,18 @@ impl Users {
     }
 }
 
-impl ManageUsers for Users {
-    fn add_user<T: Into<User>>(&mut self, name: T) {
+impl Users {
+    pub fn add_user<T: Into<User>>(&mut self, name: T) {
         // let user = User::new(name);
         let user = name.into();
         self.list.insert(user.id, user.clone());
     }
 
-    fn rm_user(&mut self, id: Uuid) {
+    pub fn rm_user(&mut self, id: Uuid) {
         self.list.remove(&id);
     }
 
-    fn users_list(&self) -> Vec<String> {
+    pub fn users_list(&self) -> Vec<String> {
         let name_list = self
             .list
             .iter()
@@ -77,7 +77,7 @@ impl ManageUsers for Users {
 
 #[cfg(test)]
 mod tests {
-    use super::{ManageUsers, Users};
+    use super::Users;
 
     #[test]
     fn test_manage_users() {

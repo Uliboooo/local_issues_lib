@@ -437,7 +437,7 @@ impl ProjectManager for Project {
             .map_err(Error::DbError)
     }
 
-    /// if db.json notfound, return Error
+    /// if db.json not found, return Error
     /// ⚠️recommend use it only file is guaranteed that db exists.
     fn open_or_create<P: AsRef<Path>, S: AsRef<str>>(project_path: P) -> Result<Self, Error>
     where

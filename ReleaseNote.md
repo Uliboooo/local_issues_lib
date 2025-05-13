@@ -1,5 +1,16 @@
 # Release note
 
+## 0.13.0('25-May-13)
+
+### added
+
+* added `Option<current_user>` to config
+* influenced by the change `Config`'s publication range, added `getter()` to `Config`(e.g. `self.current_user()`)
+
+### changes
+
+* all config fields change `pub` to `private`
+
 ## 0.12.0 ('25-May-11)
 
 ### fix
@@ -18,7 +29,7 @@
 
 ## 0.11.1 ('25-May-11)
 
-### add
+### added
 
 * added open_without_creating() to Project
 * added some documentation comments
