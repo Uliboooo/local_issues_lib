@@ -1,5 +1,5 @@
 pub mod config;
-mod db;
+mod storage;
 // pub mod printer;
 mod users;
 
@@ -11,13 +11,15 @@ use std::{
     io,
     path::{Path, PathBuf},
 };
+// use users::ManageUsers;
+pub use users::{User, Users};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const DB_NAME: &str = "db.json";
 
 #[derive(Debug)]
 pub enum Error {
-    DbError(db::Error),
+    DbError(storage::Error),
     SomeError,
     NotFound,
     Io(io::Error),
@@ -37,7 +39,7 @@ impl Display for Error {
 impl Error {
     pub fn is_file_is_zero(&self) -> bool {
         match self {
-            Error::DbError(e) => matches!(e, db::Error::FileIsZero),
+            Error::DbError(e) => matches!(e, storage::Error::FileIsZero),
             _ => false,
         }
     }
@@ -360,14 +362,19 @@ impl Issue {
     }
 }
 
-pub trait DbProject {
-    fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Self;
-    fn open<P: AsRef<Path>, S: AsRef<str>>(project_path: P, name: S) -> Result<Self, Error>
-    where
-        Self: Sized;
-    fn open_without_creating<P: AsRef<Path>, S: AsRef<str>>(
+pub trait ProjectManager {
+    fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P, author: User) -> Self;
+    fn open<P: AsRef<Path>, S: AsRef<str>>(
         project_path: P,
         name: S,
+        author: User,
+    ) -> Result<Self, Error>
+    where
+        Self: Sized;
+    fn open_or_create<P: AsRef<Path>, S: AsRef<str>>(
+        project_path: P,
+        // name: S,
+        // author: User,
     ) -> Result<Self, Error>
     where
         Self: Sized;
@@ -384,12 +391,13 @@ pub struct Project {
     project_path: PathBuf,
     storage_path: PathBuf,
     db_path: PathBuf,
+    author: User,
 }
 
-impl DbProject for Project {
+impl ProjectManager for Project {
     /// * create `storage_path` or `db_path` based on `project_path`.
     /// * and times info generated based on the current time.
-    fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Self {
+    fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P, author: User) -> Self {
         let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
         let db_path = storage_path.join(DB_NAME);
 
@@ -402,32 +410,15 @@ impl DbProject for Project {
             project_path: project_path.as_ref().to_path_buf(),
             storage_path,
             db_path,
+            author,
         }
     }
 
     /// return loaded `Project` if file(db) is empty, create new Project based on arguments.
-    fn open<P: AsRef<Path>, S: AsRef<str>>(project_path: P, name: S) -> Result<Self, Error>
-    where
-        Self: Sized,
-    {
-        let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
-        let db_path = storage_path.join(DB_NAME);
-
-        db::load::<Project, _>(db_path, true)
-            .or_else(|e| {
-                if e.is_file_is_zero() {
-                    Ok(Project::new(name, project_path))
-                } else {
-                    Err(e)
-                }
-            })
-            .map_err(Error::DbError)
-    }
-
-    /// if db.json notfound, return Error
-    fn open_without_creating<P: AsRef<Path>, S: AsRef<str>>(
+    fn open<P: AsRef<Path>, S: AsRef<str>>(
         project_path: P,
         name: S,
+        author: User,
     ) -> Result<Self, Error>
     where
         Self: Sized,
@@ -435,10 +426,10 @@ impl DbProject for Project {
         let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
         let db_path = storage_path.join(DB_NAME);
 
-        db::load::<Project, _>(db_path, false)
+        storage::load::<Project, _>(db_path, false)
             .or_else(|e| {
                 if e.is_file_is_zero() {
-                    Ok(Project::new(name, project_path))
+                    Ok(Project::new(name, project_path, author))
                 } else {
                     Err(e)
                 }
@@ -446,9 +437,21 @@ impl DbProject for Project {
             .map_err(Error::DbError)
     }
 
+    /// if db.json not found, return Error
+    /// ⚠️recommend use it only file is guaranteed that db exists.
+    fn open_or_create<P: AsRef<Path>, S: AsRef<str>>(project_path: P) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
+        let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
+        let db_path = storage_path.join(DB_NAME);
+
+        storage::load::<Project, _>(db_path, true).map_err(Error::DbError)
+    }
+
     /// save to db based on a path of Self
     fn save(&self) -> Result<(), Error> {
-        db::save(self, &self.db_path).map_err(Error::DbError)
+        storage::save(self, &self.db_path).map_err(Error::DbError)
     }
 }
 
@@ -679,7 +682,7 @@ mod tests {
 
     #[test]
     fn project_show_test() {
-        let mut db = Project::new("test", "project_path");
+        let mut db = Project::new("test", "project_path", User::new("name"));
         db.add_issue("1");
         db.add_issue("2");
         println!("{}", db);
@@ -694,7 +697,7 @@ mod tests {
     }
 
     #[test]
-    fn cf_version() {
+    fn show_version() {
         println!("{}", VERSION);
     }
 
@@ -709,7 +712,7 @@ mod tests {
             println!("ex{:?}", work_path);
         }
 
-        let db = Project::open(work_path, "test").unwrap();
+        let db = Project::open(work_path, "test", User::new("name")).unwrap();
 
         println!("res: {:?}", db);
 
