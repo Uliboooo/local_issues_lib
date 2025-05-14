@@ -22,13 +22,16 @@ details info is in [here](https://github.com/Uliboooo/local_issues_lib/blob/main
 
 ### v1 ~
 
-* [ ] basic feats
-* [ ] Users and author
+* [ ] basic feats -> 
+* [ ] `Users` and `author` for AI functions to be implemented in the future
 * [ ] feat: Config
 
 ### v2 ~
 
 * [ ] feat: save to md file. 
+* [ ] feat: Printer struct.
+* [ ] feat: AI team member by `Users`.
+* [ ] feat: Tags
 
 ## Project Structure
 

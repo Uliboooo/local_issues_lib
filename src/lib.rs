@@ -539,13 +539,13 @@ impl Project {
         }
     }
 
-    pub fn to_show_commit(&mut self, commit_id: u64, issue_id: u64) {
+    pub fn set_commit_as_visible(&mut self, commit_id: u64, issue_id: u64) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
             f.show_message(commit_id);
         }
     }
 
-    pub fn to_hide_commit(&mut self, commit_id: u64, issue_id: u64) {
+    pub fn set_commit_as_hidden(&mut self, commit_id: u64, issue_id: u64) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
             f.hide_message(commit_id);
         }
@@ -563,7 +563,7 @@ impl Project {
     }
 
     /// return ref of value
-    pub fn search_commit<T: AsRef<str>>(
+    pub fn search_commits<T: AsRef<str>>(
         &self,
         issue_id: u64,
         target_title: T,

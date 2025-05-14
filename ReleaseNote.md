@@ -1,5 +1,14 @@
 # Release note
 
+## 0.14.0('25-May-14)
+
+### changes
+
+* rename `to_show_commit()` to `set_commit_as_visible()`
+* rename `to_hide_commit()` to `set_commit_as_hidden()`
+* rename `search_commit()` to `search_commits()`
+* rename `not_found()` to `is_not_found()`
+
 ## 0.13.0('25-May-13)
 
 ### added
