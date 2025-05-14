@@ -5,26 +5,26 @@
 
 ## basic feat:
 
-- [ ] manage Project
-  - [ ] create
-  - [ ] load
-  - [ ] save
-  - [ ] rename
-  - [ ] search issue
-  - [ ] search issues
-- [ ] edit issue
-  - [ ] add
-  - [ ] rename
-  - [ ] edit due
-  - [ ] open
-  - [ ] close
-  - [ ] is_open
-  - [ ] exist
-  - [ ] remove
-- [ ] commit
-  - [ ] add
-  - [ ] rm
-  - [ ] visible commit
-  - [ ] hidden commit
-  - [ ] search commit position
-  - [ ] search commit
+- [x] manage Project
+  - [x] create
+  - [x] load
+  - [x] save
+  - [x] rename
+  - [x] search issue
+  - [x] search issues
+- [x] edit issue
+  - [x] add
+  - [x] rename
+  - [x] edit due
+  - [x] open
+  - [x] close
+  - [x] is_open
+  - [x] exist
+  - [x] remove
+- [x] commit
+  - [x] add
+  - [x] rm
+  - [x] visible commit
+  - [x] hidden commit
+  - [x] search commit position
+  - [x] search commit
