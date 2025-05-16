@@ -64,14 +64,12 @@ impl Users {
     }
 
     pub fn users_list(&self) -> Vec<String> {
-        let name_list = self
-            .list
+        self.list
             .iter()
             //            u.0 is unnecessary because u.1 contains both id and name
             //           & line break is unnecessary because u.1 contains it.
             .map(|u| format!("{}", u.1))
-            .collect::<Vec<String>>();
-        name_list
+            .collect::<Vec<String>>()
     }
 }
 

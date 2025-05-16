@@ -2,6 +2,7 @@
 
 - [ ] create Example codes
 - [ ] enhance a tests
+- [ ] fix Sorting is not possible when use DisplayOptions
 
 ## basic feat:
 
