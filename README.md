@@ -25,7 +25,7 @@ details info is in [here](https://github.com/Uliboooo/local_issues_lib/blob/main
         * [x] open
         * [x] save
     * [x] edit project info
-        * [ ] rename
+        * [x] rename
     * [x] search issues and comments
     * [x] manage issues
         * [x] add issue
@@ -39,9 +39,10 @@ details info is in [here](https://github.com/Uliboooo/local_issues_lib/blob/main
         * [x] remove comment
         * [x] show comment
         * [x] hide comment
-* [ ] `Users` and `author` for AI functions(v2~)
-* [ ] feat: Config
+* [x] `Users` and `author` for AI functions(v2~)
+* [x] feat: Config
 * [x] Display by Options
+* [ ] stabilization
 
 ### v2 ~
 
@@ -53,4 +54,35 @@ details info is in [here](https://github.com/Uliboooo/local_issues_lib/blob/main
 
 ## Project Structure
 
-- 
+- Project
+    - project name
+    - current_id
+    - created_at
+    - updated_at
+    - project_path
+    - storage_path
+    - db_path
+    - users
+        - list: HashMap\<Uuid, User\>
+            - User: {name, id: Uuid}
+    - issues: HashMap\<u64, Issue\>
+        - u64: id
+        - Issue
+            - name
+            - created_at
+            - updated_at
+            - due_date: Option
+            - author: User
+            - assigned_member: Users
+            - status
+                - Open
+                - Closed
+                    - Resolved
+                    - UnResolved
+            - messages
+                - list: Vec\<Message\>
+                    - Message
+                        - message: String
+                        - show: bool
+                        - created_at
+                        - author: User 
