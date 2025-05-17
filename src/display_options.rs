@@ -17,17 +17,16 @@ pub enum ShowLevel {
 }
 
 #[derive(Debug, Default)]
-pub struct DisplayOptions {
+pub struct DisplayOptions<'a> {
     show_level: ShowLevel,
     contain_closed_issues: bool,
-    // contain_closed_comments: bool,
     up_to_by_created_date: Range,
     up_to_by_latest_update: Range,
     up_to_by_due: Range,
-    content: Option<Project>,
+    content: Option<&'a Project>,
 }
 
-impl DisplayOptions {
+impl<'a> DisplayOptions<'a> {
     pub fn show_level(&mut self, level: ShowLevel) -> &mut Self {
         self.show_level = level;
         self
@@ -36,10 +35,6 @@ impl DisplayOptions {
         self.contain_closed_issues = contain_close_issues;
         self
     }
-    // pub fn contain_close_comments(&mut self, contain_close_comments: bool) -> &mut Self {
-    //     self.contain_closed_comments = contain_close_comments;
-    //     self
-    // }
     pub fn created_at(&mut self, up_to: Range) -> &mut Self {
         self.up_to_by_created_date = up_to;
         self
@@ -53,21 +48,17 @@ impl DisplayOptions {
         self
     }
 
-    pub fn content(&mut self, content: Project) -> &mut Self {
+    pub fn content(&mut self, content: &'a Project) -> &mut Self {
         self.content = Some(content);
         self
     }
 }
 
-impl DisplayOptions {
+impl<'a> DisplayOptions<'a> {
     pub fn new() -> Self {
         Self {
-            // content,
-            // contain_issues: false,
             show_level: ShowLevel::default(),
             contain_closed_issues: false,
-            // contain_commit_messages: false,
-            // contain_closed_comments: false,
             up_to_by_created_date: Range::All,
             up_to_by_latest_update: Range::All,
             up_to_by_due: Range::All,
@@ -89,7 +80,8 @@ impl DisplayOptions {
             .filter(|f| {
                 if self.contain_closed_issues {
                     true // because users show contained closed issues
-                } else { // only opened
+                } else {
+                    // only opened
                     f.1.is_opened()
                 }
             })
@@ -154,7 +146,7 @@ impl DisplayOptions {
     }
 }
 
-impl Display for DisplayOptions {
+impl<'a> Display for DisplayOptions<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.format_display().unwrap())
     }
@@ -163,12 +155,12 @@ impl Display for DisplayOptions {
 #[cfg(test)]
 mod tests {
     use crate::{
-        Project, ProjectManager,
+        Error, Project, ProjectManager,
         display_options::{DisplayOptions, ShowLevel},
     };
 
     #[test]
-    fn hoge() {
+    fn dp_test() -> Result<(), Error> {
         let mut pr = Project::new("name", "project_path");
         pr.add_issue("new_name");
         pr.add_commit(1, "commit_msg");
@@ -183,7 +175,9 @@ mod tests {
             DisplayOptions::new()
                 .show_level(ShowLevel::Issues)
                 // .contain_close_issues(false)
-                .content(pr)
+                .content(&pr)
         );
+        pr.save()?;
+        Ok(())
     }
 }
