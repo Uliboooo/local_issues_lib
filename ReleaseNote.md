@@ -1,5 +1,26 @@
 # Release note
 
+## 0.14.2('25-May-17)
+
+### enhance
+
+* enhance examples
+* enhance DisplayOptions(old: Printer)
+
+### changes
+
+* rename `to_show_commit()` to `set_commit_as_visible()`
+* rename `to_hide_commit()` to `set_commit_as_hidden()`
+* rename `search_commit()` to `search_comments()`
+* rename `commit()` to `add_commit()`
+* rename `not_found()` to `is_not_found()`
+
+### remove
+
+* remove felid `author: User` from `Project`
+
+**i may not have written some of the changes..**
+
 ## 0.13.0('25-May-13)
 
 ### added

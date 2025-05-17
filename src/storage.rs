@@ -30,7 +30,7 @@ impl Error {
         matches!(self, Error::FileIsZero)
     }
 
-    pub fn not_found(&self) -> bool {
+    pub fn is_not_found(&self) -> bool {
         match self {
             Error::Io(error) => error.kind() == io::ErrorKind::NotFound,
             _ => false,

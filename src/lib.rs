@@ -1,6 +1,6 @@
 pub mod config;
+pub mod display_options;
 mod storage;
-// pub mod printer;
 mod users;
 
 use chrono::{DateTime, Local};
@@ -45,7 +45,7 @@ impl Error {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct Message {
     message: String,
     show: bool,
@@ -87,8 +87,14 @@ trait ManageMessage {
     fn rm_message(&mut self, id: u64);
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Messages(Vec<Message>);
+
+impl Messages {
+    fn count_messages(&self) -> i32 {
+        self.0.len() as i32
+    }
+}
 
 impl ManageMessage for Messages {
     fn new() -> Self
@@ -141,9 +147,10 @@ impl Display for Messages {
 
 pub trait StatusT {
     fn is_opened(&self) -> bool;
+    fn to_emoji(&self) -> String;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 enum Status {
     Open,
     Closed(Closed),
@@ -152,6 +159,17 @@ enum Status {
 impl StatusT for Status {
     fn is_opened(&self) -> bool {
         matches!(self, Status::Open)
+    }
+
+    fn to_emoji(&self) -> String {
+        match self {
+            Status::Open => "🟢",
+            Status::Closed(closed) => match closed {
+                Closed::Resolved => "✅🔴",
+                Closed::UnResolved => "❌🔴",
+            },
+        }
+        .to_string()
     }
 }
 
@@ -167,7 +185,7 @@ impl Display for Status {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 enum Closed {
     Resolved,
     UnResolved,
@@ -189,7 +207,7 @@ trait IssueTrait {
     fn get_message(&self) -> &Messages;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Issue {
     name: String,
     messages: Messages,
@@ -210,6 +228,9 @@ impl Issue {
             updated_at: Local::now(),
             due_date: None,
         }
+    }
+    pub fn count_message(&self) -> i32 {
+        self.messages.count_messages()
     }
 }
 
@@ -363,17 +384,13 @@ impl Issue {
 }
 
 pub trait ProjectManager {
-    fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P, author: User) -> Self;
-    fn open<P: AsRef<Path>, S: AsRef<str>>(
-        project_path: P,
-        name: S,
-        author: User,
-    ) -> Result<Self, Error>
+    fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Self;
+    fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
     where
         Self: Sized;
     fn open_or_create<P: AsRef<Path>, S: AsRef<str>>(
         project_path: P,
-        // name: S,
+        name: S,
         // author: User,
     ) -> Result<Self, Error>
     where
@@ -381,7 +398,7 @@ pub trait ProjectManager {
     fn save(&self) -> Result<(), Error>;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Project {
     project_name: String,
     issues: HashMap<u64, Issue>,
@@ -391,13 +408,12 @@ pub struct Project {
     project_path: PathBuf,
     storage_path: PathBuf,
     db_path: PathBuf,
-    author: User,
 }
 
 impl ProjectManager for Project {
     /// * create `storage_path` or `db_path` based on `project_path`.
     /// * and times info generated based on the current time.
-    fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P, author: User) -> Self {
+    fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Self {
         let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
         let db_path = storage_path.join(DB_NAME);
 
@@ -410,15 +426,25 @@ impl ProjectManager for Project {
             project_path: project_path.as_ref().to_path_buf(),
             storage_path,
             db_path,
-            author,
         }
     }
 
     /// return loaded `Project` if file(db) is empty, create new Project based on arguments.
-    fn open<P: AsRef<Path>, S: AsRef<str>>(
+    fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
+        let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
+        let db_path = storage_path.join(DB_NAME);
+
+        storage::load::<Project, _>(db_path, false).map_err(Error::DbError)
+    }
+
+    /// if db.json not found, create new.
+    /// ⚠️recommend use it only file is guaranteed that db exists.
+    fn open_or_create<P: AsRef<Path>, S: AsRef<str>>(
         project_path: P,
         name: S,
-        author: User,
     ) -> Result<Self, Error>
     where
         Self: Sized,
@@ -426,10 +452,11 @@ impl ProjectManager for Project {
         let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
         let db_path = storage_path.join(DB_NAME);
 
-        storage::load::<Project, _>(db_path, false)
+        storage::load::<Project, _>(db_path, true)
+            // if create new, file size is 0,
             .or_else(|e| {
                 if e.is_file_is_zero() {
-                    Ok(Project::new(name, project_path, author))
+                    Ok(Project::new(name, project_path))
                 } else {
                     Err(e)
                 }
@@ -437,21 +464,42 @@ impl ProjectManager for Project {
             .map_err(Error::DbError)
     }
 
-    /// if db.json not found, return Error
-    /// ⚠️recommend use it only file is guaranteed that db exists.
-    fn open_or_create<P: AsRef<Path>, S: AsRef<str>>(project_path: P) -> Result<Self, Error>
-    where
-        Self: Sized,
-    {
-        let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
-        let db_path = storage_path.join(DB_NAME);
-
-        storage::load::<Project, _>(db_path, true).map_err(Error::DbError)
-    }
-
     /// save to db based on a path of Self
     fn save(&self) -> Result<(), Error> {
         storage::save(self, &self.db_path).map_err(Error::DbError)
+    }
+}
+
+pub trait SearchIssue {
+    fn search_issue<S: AsRef<str>>(&self, target_title: S) -> Option<u64>;
+    fn search_issues<S: AsRef<str>>(&self, target_title: S) -> Option<Vec<u64>>;
+}
+
+impl SearchIssue for Project {
+    fn search_issue<S: AsRef<str>>(&self, target_title: S) -> Option<u64> {
+        self.issues
+            .iter()
+            .find(|f| f.1.name == *target_title.as_ref())
+            .map(|f| *f.0)
+    }
+
+    fn search_issues<S: AsRef<str>>(&self, target_title: S) -> Option<Vec<u64>> {
+        let a = self
+            .issues
+            .iter()
+            .filter(|f| f.1.name == *target_title.as_ref())
+            .map(|f| *f.0)
+            .collect::<Vec<u64>>();
+        if a.is_empty() { Some(a) } else { None }
+    }
+}
+
+impl Project {
+    pub fn count_issues(&self) -> i32 {
+        self.issues.iter().len() as i32
+    }
+    pub fn count_comments(&self, issue_id: u64) -> Option<i32> {
+        self.issues.get(&issue_id).map(|f| f.count_message())
     }
 }
 
@@ -461,22 +509,23 @@ impl Project {
         self.project_name = title.as_ref().to_string();
     }
 
-    pub fn search_issue<S: AsRef<str>>(&self, target_title: S) -> Option<u64> {
-        self.issues
-            .iter()
-            .find(|f| f.1.name == *target_title.as_ref())
-            .map(|f| *f.0)
-    }
+    // returns the first match for target_title
+    // pub fn search_issue<S: AsRef<str>>(&self, target_title: S) -> Option<u64> {
+    //     self.issues
+    //         .iter()
+    //         .find(|f| f.1.name == *target_title.as_ref())
+    //         .map(|f| *f.0)
+    // }
 
-    pub fn search_issues<S: AsRef<str>>(&self, target_title: S) -> Option<Vec<u64>> {
-        let a = self
-            .issues
-            .iter()
-            .filter(|f| f.1.name == *target_title.as_ref())
-            .map(|f| *f.0)
-            .collect::<Vec<u64>>();
-        if a.is_empty() { Some(a) } else { None }
-    }
+    // pub fn search_issues<S: AsRef<str>>(&self, target_title: S) -> Option<Vec<u64>> {
+    //     let a = self
+    //         .issues
+    //         .iter()
+    //         .filter(|f| f.1.name == *target_title.as_ref())
+    //         .map(|f| *f.0)
+    //         .collect::<Vec<u64>>();
+    //     if a.is_empty() { Some(a) } else { None }
+    // }
 }
 
 impl Project {
@@ -523,9 +572,42 @@ impl Project {
     }
 }
 
+pub trait SearchCommit {
+    fn search_commit_position<T: AsRef<str>>(&self, issue_id: u64, target_title: T) -> Option<u64>;
+    fn search_comments<T: AsRef<str>>(&self, issue_id: u64, target_title: T) -> Option<&Messages>;
+    fn search_comments_positions<T: AsRef<str>>(
+        &self,
+        issue_id: u64,
+        target_title: T,
+    ) -> Option<Vec<u64>>;
+}
+
+impl SearchCommit for Project {
+    fn search_commit_position<T: AsRef<str>>(&self, issue_id: u64, target_title: T) -> Option<u64> {
+        self.issues
+            .get(&issue_id)
+            .and_then(|f| f.search(target_title))
+    }
+
+    fn search_comments<T: AsRef<str>>(&self, issue_id: u64, target_title: T) -> Option<&Messages> {
+        self.search_commit_position(issue_id, target_title)
+            .and_then(|f| self.issues.get(&f).map(|f| f.get_message()))
+    }
+
+    fn search_comments_positions<T: AsRef<str>>(
+        &self,
+        issue_id: u64,
+        target_title: T,
+    ) -> Option<Vec<u64>> {
+        self.issues
+            .get(&issue_id)
+            .and_then(|f| f.search_list(target_title))
+    }
+}
+
 /// edit commit msg
 impl Project {
-    pub fn commit<T: AsRef<str>>(&mut self, issue_id: u64, commit_msg: T) {
+    pub fn add_commit<T: AsRef<str>>(&mut self, issue_id: u64, commit_msg: T) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
             f.commit(commit_msg)
         }
@@ -539,49 +621,49 @@ impl Project {
         }
     }
 
-    pub fn to_show_commit(&mut self, commit_id: u64, issue_id: u64) {
+    pub fn set_commit_as_visible(&mut self, commit_id: u64, issue_id: u64) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
             f.show_message(commit_id);
         }
     }
 
-    pub fn to_hide_commit(&mut self, commit_id: u64, issue_id: u64) {
+    pub fn set_commit_as_hidden(&mut self, commit_id: u64, issue_id: u64) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
             f.hide_message(commit_id);
         }
     }
 
-    /// return index
-    pub fn search_commit_position<T: AsRef<str>>(
-        &self,
-        issue_id: u64,
-        target_title: T,
-    ) -> Option<u64> {
-        self.issues
-            .get(&issue_id)
-            .and_then(|f| f.search(target_title))
-    }
+    // /// return index
+    // pub fn search_commit_position<T: AsRef<str>>(
+    //     &self,
+    //     issue_id: u64,
+    //     target_title: T,
+    // ) -> Option<u64> {
+    //     self.issues
+    //         .get(&issue_id)
+    //         .and_then(|f| f.search(target_title))
+    // }
 
-    /// return ref of value
-    pub fn search_commit<T: AsRef<str>>(
-        &self,
-        issue_id: u64,
-        target_title: T,
-    ) -> Option<&Messages> {
-        self.search_commit_position(issue_id, target_title)
-            .and_then(|f| self.issues.get(&f).map(|f| f.get_message()))
-    }
+    // /// return ref of value
+    // pub fn search_comments<T: AsRef<str>>(
+    //     &self,
+    //     issue_id: u64,
+    //     target_title: T,
+    // ) -> Option<&Messages> {
+    //     self.search_commit_position(issue_id, target_title)
+    //         .and_then(|f| self.issues.get(&f).map(|f| f.get_message()))
+    // }
 
-    /// return indexes
-    pub fn search_commits_positions<T: AsRef<str>>(
-        &self,
-        issue_id: u64,
-        target_title: T,
-    ) -> Option<Vec<u64>> {
-        self.issues
-            .get(&issue_id)
-            .and_then(|f| f.search_list(target_title))
-    }
+    // /// return indexes
+    // pub fn search_comments_positions<T: AsRef<str>>(
+    //     &self,
+    //     issue_id: u64,
+    //     target_title: T,
+    // ) -> Option<Vec<u64>> {
+    //     self.issues
+    //         .get(&issue_id)
+    //         .and_then(|f| f.search_list(target_title))
+    // }
 }
 
 impl Display for Project {
@@ -682,7 +764,7 @@ mod tests {
 
     #[test]
     fn project_show_test() {
-        let mut db = Project::new("test", "project_path", User::new("name"));
+        let mut db = Project::new("test", "project_path");
         db.add_issue("1");
         db.add_issue("2");
         println!("{}", db);
@@ -712,11 +794,12 @@ mod tests {
             println!("ex{:?}", work_path);
         }
 
-        let db = Project::open(work_path, "test", User::new("name")).unwrap();
+        let mut db = Project::open(work_path).unwrap();
 
         println!("res: {:?}", db);
 
-        // db.add_issue("new_name");
+        db.add_issue("new_name2");
+
         Ok(())
     }
 }

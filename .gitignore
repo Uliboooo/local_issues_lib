@@ -1,7 +1,9 @@
-/target
+/target/
 db/
 .vscode/
+.idea/
 _*
 .DS_Store
 test/
 test_resource/
+examples/project/

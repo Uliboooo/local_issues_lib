@@ -4,9 +4,7 @@
 
 ## notes
 
-* printer module is still incomplete.
-
-more tasks [here](https://github.com/Uliboooo/local_issues_lib/blob/main/Tasks.md)
+tasks [here](https://github.com/Uliboooo/local_issues_lib/blob/main/Tasks.md)
 
 ## Local Issues Lib
 
@@ -23,12 +21,15 @@ details info is in [here](https://github.com/Uliboooo/local_issues_lib/blob/main
 ### v1 ~
 
 * [ ] basic feats
-* [ ] Users and author
+* [ ] `Users` and `author` for AI functions to be implemented in the future
 * [ ] feat: Config
 
 ### v2 ~
 
 * [ ] feat: save to md file. 
+* [ ] feat: AI team member by `Users`.
+* [ ] feat: Tags
+* [ ] feat: `display_options mod` (Previously `Printer` struct).
 
 ## Project Structure
 
