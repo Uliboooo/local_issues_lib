@@ -4,7 +4,6 @@ use local_issues_lib::{Project, ProjectManager, config::Config, display_options:
 
 fn main() -> Result<(), local_issues_lib::Error> {
     let project_path = env::current_dir().unwrap().join("examples").join("project");
-    // later, use current_user
     let mut config = Config::new(); // to actually use it, save it to a file with the load function and then use the
     config.change_current_user("test_user");
 

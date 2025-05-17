@@ -25,7 +25,7 @@ details info is in [here](https://github.com/Uliboooo/local_issues_lib/blob/main
         * [x] open
         * [x] save
     * [x] edit project info
-        * [ ] rename
+        * [x] rename
     * [x] search issues and comments
     * [x] manage issues
         * [x] add issue
@@ -39,9 +39,10 @@ details info is in [here](https://github.com/Uliboooo/local_issues_lib/blob/main
         * [x] remove comment
         * [x] show comment
         * [x] hide comment
-* [ ] `Users` and `author` for AI functions(v2~)
-* [ ] feat: Config
+* [x] `Users` and `author` for AI functions(v2~)
+* [x] feat: Config
 * [x] Display by Options
+* [ ] stabilization
 
 ### v2 ~
 
