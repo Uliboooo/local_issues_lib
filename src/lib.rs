@@ -193,10 +193,10 @@ enum Closed {
 
 trait IssueTrait {
     fn update(&mut self);
-    fn commit<S: AsRef<str>>(&mut self, msg_str: S);
+    fn comment<S: AsRef<str>>(&mut self, msg_str: S);
     fn rename<S: AsRef<str>>(&mut self, new_title: S);
     fn edit_due(&mut self, new_due: DateTime<Local>);
-    fn rm_commit(&mut self, id: u64);
+    fn rm_comment(&mut self, id: u64);
     fn hide_message(&mut self, id: u64);
     fn show_message(&mut self, id: u64);
     fn search<S: AsRef<str>>(&self, target_title: S) -> Option<u64>;
@@ -239,7 +239,7 @@ impl IssueTrait for Issue {
         self.updated_at = Local::now();
     }
 
-    fn commit<S: AsRef<str>>(&mut self, msg_str: S) {
+    fn comment<S: AsRef<str>>(&mut self, msg_str: S) {
         self.update();
         self.messages.add_message_to(Message::new(msg_str, true));
     }
@@ -257,7 +257,7 @@ impl IssueTrait for Issue {
 
     /// ⚠️ this fn remove message in Vec and rewrite index.
     /// recommend hide_message().
-    fn rm_commit(&mut self, id: u64) {
+    fn rm_comment(&mut self, id: u64) {
         self.update();
         self.messages.rm_message(id);
     }
@@ -572,8 +572,9 @@ impl Project {
     }
 }
 
-pub trait SearchCommit {
-    fn search_commit_position<T: AsRef<str>>(&self, issue_id: u64, target_title: T) -> Option<u64>;
+pub trait SearchComment {
+    fn search_comment_position<T: AsRef<str>>(&self, issue_id: u64, target_title: T)
+    -> Option<u64>;
     fn search_comments<T: AsRef<str>>(&self, issue_id: u64, target_title: T) -> Option<&Messages>;
     fn search_comments_positions<T: AsRef<str>>(
         &self,
@@ -582,15 +583,19 @@ pub trait SearchCommit {
     ) -> Option<Vec<u64>>;
 }
 
-impl SearchCommit for Project {
-    fn search_commit_position<T: AsRef<str>>(&self, issue_id: u64, target_title: T) -> Option<u64> {
+impl SearchComment for Project {
+    fn search_comment_position<T: AsRef<str>>(
+        &self,
+        issue_id: u64,
+        target_title: T,
+    ) -> Option<u64> {
         self.issues
             .get(&issue_id)
             .and_then(|f| f.search(target_title))
     }
 
     fn search_comments<T: AsRef<str>>(&self, issue_id: u64, target_title: T) -> Option<&Messages> {
-        self.search_commit_position(issue_id, target_title)
+        self.search_comment_position(issue_id, target_title)
             .and_then(|f| self.issues.get(&f).map(|f| f.get_message()))
     }
 
@@ -605,65 +610,33 @@ impl SearchCommit for Project {
     }
 }
 
-/// edit commit msg
+/// edit comment msg
 impl Project {
-    pub fn add_commit<T: AsRef<str>>(&mut self, issue_id: u64, commit_msg: T) {
+    pub fn add_comment<T: AsRef<str>>(&mut self, issue_id: u64, comment: T) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
-            f.commit(commit_msg)
+            f.comment(comment)
         }
     }
 
     /// ⚠️ this fn remove message in Vec and rewrite index.
     /// recommend hide_message().
-    pub fn rm_commit(&mut self, issue_id: u64, commit_id: u64) {
+    pub fn rm_comment(&mut self, issue_id: u64, comment_id: u64) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
-            f.rm_commit(commit_id);
+            f.rm_comment(comment_id);
         }
     }
 
-    pub fn set_commit_as_visible(&mut self, commit_id: u64, issue_id: u64) {
+    pub fn set_comment_as_visible(&mut self, comment_id: u64, issue_id: u64) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
-            f.show_message(commit_id);
+            f.show_message(comment_id);
         }
     }
 
-    pub fn set_commit_as_hidden(&mut self, commit_id: u64, issue_id: u64) {
+    pub fn set_comment_as_hidden(&mut self, comment_id: u64, issue_id: u64) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
-            f.hide_message(commit_id);
+            f.hide_message(comment_id);
         }
     }
-
-    // /// return index
-    // pub fn search_commit_position<T: AsRef<str>>(
-    //     &self,
-    //     issue_id: u64,
-    //     target_title: T,
-    // ) -> Option<u64> {
-    //     self.issues
-    //         .get(&issue_id)
-    //         .and_then(|f| f.search(target_title))
-    // }
-
-    // /// return ref of value
-    // pub fn search_comments<T: AsRef<str>>(
-    //     &self,
-    //     issue_id: u64,
-    //     target_title: T,
-    // ) -> Option<&Messages> {
-    //     self.search_commit_position(issue_id, target_title)
-    //         .and_then(|f| self.issues.get(&f).map(|f| f.get_message()))
-    // }
-
-    // /// return indexes
-    // pub fn search_comments_positions<T: AsRef<str>>(
-    //     &self,
-    //     issue_id: u64,
-    //     target_title: T,
-    // ) -> Option<Vec<u64>> {
-    //     self.issues
-    //         .get(&issue_id)
-    //         .and_then(|f| f.search_list(target_title))
-    // }
 }
 
 impl Display for Project {
@@ -732,9 +705,9 @@ mod tests {
     fn issue_tests() {
         let mut test_issue = Issue::new("test");
 
-        test_issue.commit("test1_show");
+        test_issue.comment("test1_show");
         thread::sleep(time::Duration::from_secs(3));
-        test_issue.commit("test2_hide");
+        test_issue.comment("test2_hide");
         let hide_id = test_issue.search("test2_hide").unwrap();
         test_issue.hide_message(hide_id);
 
@@ -747,8 +720,8 @@ mod tests {
     #[test]
     fn test_print_issue() {
         let mut open_issue = Issue::new("show_issue");
-        open_issue.commit("msg_str");
-        open_issue.commit("2");
+        open_issue.comment("msg_str");
+        open_issue.comment("2");
         let mut close_issue = Issue::new("closed_issue");
         close_issue.close(true);
 

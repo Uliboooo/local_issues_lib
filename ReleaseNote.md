@@ -1,5 +1,11 @@
 # Release note
 
+## 0.14.3('25-May-17)
+
+### changes
+
+* rename commit to comment in this Lib
+
 ## 0.14.2('25-May-17)
 
 ### enhance

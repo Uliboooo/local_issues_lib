@@ -9,11 +9,11 @@ fn main() -> Result<(), local_issues_lib::Error> {
 
     // 👇's id is 1
     p.add_issue("issue1");
-    p.add_commit(1, "first comment");
+    p.add_comment(1, "first comment");
     p.save()?;
 
     let mut p = Project::open(&project_path)?;
-    p.add_commit(1, "second comment");
+    p.add_comment(1, "second comment");
 
     p.add_issue("will close by resolve");
     p.add_issue("will close by unresolved");

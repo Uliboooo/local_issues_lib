@@ -21,13 +21,32 @@ details info is in [here](https://github.com/Uliboooo/local_issues_lib/blob/main
 ### v1 ~
 
 * [ ] basic feats
-* [ ] `Users` and `author` for AI functions to be implemented in the future
+    * [ ] manage project
+        * [ ] open
+        * [ ] save
+    * [ ] edit project info
+        * [ ] rename
+    * [ ] search issues and comments
+    * [ ] manage issues
+        * [ ] add issue
+        * [ ] rename issue
+        * [ ] edit due
+        * [ ] open issue
+        * [ ] close issue
+        * [ ] remove issue
+    * [ ] manage comments
+        * [ ] add comment
+        * [ ] remove comment
+        * [ ] show comment
+        * [ ] hide comment
+* [ ] `Users` and `author` for AI functions(v2~)
 * [ ] feat: Config
+* [ ] Display by Options
 
 ### v2 ~
 
-* [ ] feat: save to md file. 
-* [ ] feat: AI team member by `Users`.
+* [ ] feat: export to md file. 
+* [ ] feat: AI team member as `User`.
 * [ ] feat: Tags
 * [ ] feat: `display_options mod` (Previously `Printer` struct).
 
