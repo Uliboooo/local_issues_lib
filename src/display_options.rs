@@ -162,12 +162,12 @@ mod tests {
     #[test]
     fn dp_test() -> Result<(), Error> {
         let mut pr = Project::new("name", "project_path");
-        pr.add_issue("new_name");
-        pr.add_comment(1, "comment_msg");
-        pr.add_issue("close?");
-        pr.add_comment(2, "closed?");
+        pr.add_issue("new_name", "test_author");
+        pr.add_comment(1, "comment_msg", "");
+        pr.add_issue("close?", "test_author");
+        pr.add_comment(2, "closed?", "");
         pr.to_close_issue(2, false);
-        pr.add_issue("not resolve");
+        pr.add_issue("not resolve", "test_author");
         pr.to_close_issue(3, true);
 
         println!(

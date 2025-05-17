@@ -1,5 +1,22 @@
 # Release note
 
+## 0.15.0('25-May-18)
+
+### add
+
+* add method `change_current_user` to `Config`
+* add method `update()` to `Project`
+* add felid `users` to Project a issue
+    * add functions `add_user()`, `change_author_of_issue()`, `assign_new_user_to_issue()` to Project
+
+### changes
+
+* rename `get_mut_users` to `get_user_list`
+
+### fix
+
+* don't update `Project::update_date` problem
+
 ## 0.14.3('25-May-17)
 
 ### changes

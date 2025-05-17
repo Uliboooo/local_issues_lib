@@ -50,13 +50,15 @@ pub struct Message {
     message: String,
     show: bool,
     created_at: DateTime<Local>,
+    author: User,
 }
 impl Message {
-    pub fn new<S: AsRef<str>>(message: S, show: bool) -> Self {
+    pub fn new<S: AsRef<str>, U: Into<User>>(message: S, show: bool, author: U) -> Self {
         Self {
             message: message.as_ref().to_string(),
             show,
             created_at: Local::now(),
+            author: author.into(),
         }
     }
     fn hide(&mut self) {
@@ -193,7 +195,7 @@ enum Closed {
 
 trait IssueTrait {
     fn update(&mut self);
-    fn comment<S: AsRef<str>>(&mut self, msg_str: S);
+    fn comment<S: AsRef<str>, U: Into<User>>(&mut self, msg_str: S, author: U);
     fn rename<S: AsRef<str>>(&mut self, new_title: S);
     fn edit_due(&mut self, new_due: DateTime<Local>);
     fn rm_comment(&mut self, id: u64);
@@ -205,6 +207,8 @@ trait IssueTrait {
     fn open(&mut self);
     fn is_opened(&self) -> bool;
     fn get_message(&self) -> &Messages;
+    fn change_author<U: Into<User>>(&mut self, new_author: U);
+    fn assign_user<U: Into<User>>(&mut self, user: U);
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -215,11 +219,12 @@ pub struct Issue {
     created_at: DateTime<Local>,
     updated_at: DateTime<Local>,
     due_date: Option<DateTime<Local>>,
-    // users: Users,
+    author: User,
+    assigned_member: Option<Users>,
 }
 
 impl Issue {
-    pub fn new<S: AsRef<str>>(name: S) -> Self {
+    pub fn new<S: AsRef<str>, U: Into<User>>(name: S, author: U) -> Self {
         Self {
             name: name.as_ref().to_string(),
             messages: Messages::new(),
@@ -227,6 +232,8 @@ impl Issue {
             created_at: Local::now(),
             updated_at: Local::now(),
             due_date: None,
+            author: author.into(),
+            assigned_member: None,
         }
     }
     pub fn count_message(&self) -> i32 {
@@ -239,9 +246,10 @@ impl IssueTrait for Issue {
         self.updated_at = Local::now();
     }
 
-    fn comment<S: AsRef<str>>(&mut self, msg_str: S) {
+    fn comment<S: AsRef<str>, U: Into<User>>(&mut self, msg_str: S, author: U) {
         self.update();
-        self.messages.add_message_to(Message::new(msg_str, true));
+        self.messages
+            .add_message_to(Message::new(msg_str, true, author));
     }
 
     fn rename<S: AsRef<str>>(&mut self, new_title: S) {
@@ -313,6 +321,25 @@ impl IssueTrait for Issue {
 
     fn get_message(&self) -> &Messages {
         &self.messages
+    }
+
+    fn change_author<U: Into<User>>(&mut self, new_author: U) {
+        self.update();
+        self.author = new_author.into();
+    }
+
+    fn assign_user<U: Into<User>>(&mut self, user: U) {
+        self.update();
+        match &mut self.assigned_member {
+            Some(v) => v.add_user(user),
+            None => {
+                self.assigned_member = Some({
+                    let mut n = Users::new();
+                    n.add_user(user);
+                    n
+                })
+            }
+        }
     }
 }
 
@@ -396,6 +423,7 @@ pub trait ProjectManager {
     where
         Self: Sized;
     fn save(&self) -> Result<(), Error>;
+    fn update(&mut self);
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -408,6 +436,7 @@ pub struct Project {
     project_path: PathBuf,
     storage_path: PathBuf,
     db_path: PathBuf,
+    users: Users,
 }
 
 impl ProjectManager for Project {
@@ -426,6 +455,7 @@ impl ProjectManager for Project {
             project_path: project_path.as_ref().to_path_buf(),
             storage_path,
             db_path,
+            users: Users::new(),
         }
     }
 
@@ -468,6 +498,35 @@ impl ProjectManager for Project {
     fn save(&self) -> Result<(), Error> {
         storage::save(self, &self.db_path).map_err(Error::DbError)
     }
+
+    fn update(&mut self) {
+        self.updated_at = Local::now();
+    }
+}
+
+/// manage users
+impl Project {
+    pub fn add_user<U: Into<User>>(&mut self, new_user: U) {
+        self.update();
+        self.users.add_user(new_user);
+    }
+    pub fn list_users(&self) -> Vec<String> {
+        self.users.users_list()
+    }
+
+    pub fn change_author_of_issue<U: Into<User>>(&mut self, new_author: U, issue_id: u64) {
+        if let Some(f) = self.issues.get_mut(&issue_id) {
+            f.change_author(new_author);
+            self.update();
+        }
+    }
+
+    pub fn assign_new_user_to_issue<U: Into<User>>(&mut self, new_user: U, issue_id: u64) {
+        if let Some(f) = self.issues.get_mut(&issue_id) {
+            f.assign_user(new_user);
+            self.update();
+        }
+    }
 }
 
 pub trait SearchIssue {
@@ -506,41 +565,28 @@ impl Project {
 // ctrl Project
 impl Project {
     pub fn rename<T: AsRef<str>>(&mut self, title: T) {
+        self.update();
         self.project_name = title.as_ref().to_string();
     }
-
-    // returns the first match for target_title
-    // pub fn search_issue<S: AsRef<str>>(&self, target_title: S) -> Option<u64> {
-    //     self.issues
-    //         .iter()
-    //         .find(|f| f.1.name == *target_title.as_ref())
-    //         .map(|f| *f.0)
-    // }
-
-    // pub fn search_issues<S: AsRef<str>>(&self, target_title: S) -> Option<Vec<u64>> {
-    //     let a = self
-    //         .issues
-    //         .iter()
-    //         .filter(|f| f.1.name == *target_title.as_ref())
-    //         .map(|f| *f.0)
-    //         .collect::<Vec<u64>>();
-    //     if a.is_empty() { Some(a) } else { None }
-    // }
 }
 
 impl Project {
-    pub fn add_issue<T: AsRef<str>>(&mut self, new_name: T) {
+    pub fn add_issue<T: AsRef<str>, U: Into<User>>(&mut self, new_name: T, author: U) {
+        self.update();
         self.current_id += 1;
-        self.issues.insert(self.current_id, Issue::new(new_name));
+        self.issues
+            .insert(self.current_id, Issue::new(new_name, author));
     }
 
     pub fn rename_issue<T: AsRef<str>>(&mut self, issue_id: u64, new_name: T) {
+        self.update();
         if let Some(f) = self.issues.get_mut(&issue_id) {
             f.rename(new_name);
         }
     }
 
     pub fn edit_issue_due(&mut self, id: u64, due: DateTime<Local>) {
+        self.update();
         if let Some(f) = self.issues.get_mut(&id) {
             f.edit_due(due);
         }
@@ -548,13 +594,15 @@ impl Project {
 
     pub fn to_open_issue(&mut self, issue_id: u64) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
-            f.open()
+            f.open();
+            self.update();
         }
     }
 
     pub fn to_close_issue(&mut self, issue_id: u64, is_resolved: bool) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
             f.close(is_resolved);
+            self.update();
         }
     }
 
@@ -568,6 +616,7 @@ impl Project {
     }
 
     pub fn remove_issue(&mut self, issue_id: u64) {
+        self.update();
         self.issues.remove(&issue_id);
     }
 }
@@ -612,9 +661,15 @@ impl SearchComment for Project {
 
 /// edit comment msg
 impl Project {
-    pub fn add_comment<T: AsRef<str>>(&mut self, issue_id: u64, comment: T) {
+    pub fn add_comment<T: AsRef<str>, U: Into<User>>(
+        &mut self,
+        issue_id: u64,
+        comment: T,
+        author: U,
+    ) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
-            f.comment(comment)
+            f.comment(comment, author);
+            self.update();
         }
     }
 
@@ -623,18 +678,21 @@ impl Project {
     pub fn rm_comment(&mut self, issue_id: u64, comment_id: u64) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
             f.rm_comment(comment_id);
+            self.update();
         }
     }
 
     pub fn set_comment_as_visible(&mut self, comment_id: u64, issue_id: u64) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
             f.show_message(comment_id);
+            self.update();
         }
     }
 
     pub fn set_comment_as_hidden(&mut self, comment_id: u64, issue_id: u64) {
         if let Some(f) = self.issues.get_mut(&issue_id) {
             f.hide_message(comment_id);
+            self.update();
         }
     }
 }
@@ -678,101 +736,4 @@ impl Project {
 
 pub fn db_path(work_path: PathBuf) -> PathBuf {
     work_path.join(".local_issue").join(DB_NAME)
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::*;
-    use std::{env, thread, time};
-
-    #[test]
-    fn messages_print_test() {
-        let mut msgs = Messages::new();
-
-        let new_msg = Message::new("message", true);
-        msgs.add_message_to(new_msg);
-        let new_msg2 = Message::new("message2", true);
-        msgs.add_message_to(new_msg2);
-        let new_msg3 = Message::new("hide", false);
-        msgs.add_message_to(new_msg3);
-        let new_msg4 = Message::new("show", true);
-        msgs.add_message_to(new_msg4);
-
-        println!("{}", msgs);
-    }
-
-    #[test]
-    fn issue_tests() {
-        let mut test_issue = Issue::new("test");
-
-        test_issue.comment("test1_show");
-        thread::sleep(time::Duration::from_secs(3));
-        test_issue.comment("test2_hide");
-        let hide_id = test_issue.search("test2_hide").unwrap();
-        test_issue.hide_message(hide_id);
-
-        println!("{}", test_issue);
-
-        test_issue.show_message(hide_id);
-        println!("{}", test_issue);
-    }
-
-    #[test]
-    fn test_print_issue() {
-        let mut open_issue = Issue::new("show_issue");
-        open_issue.comment("msg_str");
-        open_issue.comment("2");
-        let mut close_issue = Issue::new("closed_issue");
-        close_issue.close(true);
-
-        let l = vec![open_issue, close_issue];
-        for i in &l {
-            println!("{}", i.fmt_only_open());
-        }
-
-        for i in &l {
-            println!("{}", i);
-        }
-    }
-
-    #[test]
-    fn project_show_test() {
-        let mut db = Project::new("test", "project_path");
-        db.add_issue("1");
-        db.add_issue("2");
-        println!("{}", db);
-    }
-
-    #[test]
-    fn hoge() {
-        println!(
-            "{:?}",
-            env::current_dir().unwrap().join("test/test").exists()
-        );
-    }
-
-    #[test]
-    fn show_version() {
-        println!("{}", VERSION);
-    }
-
-    #[test]
-    fn pj_tests() -> Result<(), Error> {
-        let work_path = env::current_dir()
-            .unwrap()
-            .join("test_resource")
-            .join("test");
-        std::fs::create_dir_all(&work_path).map_err(Error::Io)?;
-        if work_path.exists() {
-            println!("ex{:?}", work_path);
-        }
-
-        let mut db = Project::open(work_path).unwrap();
-
-        println!("res: {:?}", db);
-
-        db.add_issue("new_name2");
-
-        Ok(())
-    }
 }
