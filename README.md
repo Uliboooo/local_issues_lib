@@ -4,9 +4,7 @@
 
 ## notes
 
-* printer module is still incomplete.
-
-more tasks [here](https://github.com/Uliboooo/local_issues_lib/blob/main/Tasks.md)
+tasks [here](https://github.com/Uliboooo/local_issues_lib/blob/main/Tasks.md)
 
 ## Local Issues Lib
 
