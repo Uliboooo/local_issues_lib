@@ -1,10 +1,12 @@
 [package]
 name = "local_issues_lib"
 description = "the lib provide feature that local issue (like a github)"
-version = "0.14.2"
+version = "0.15.0"
 authors = ["Uliboooo"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/Uliboooo/local_issues_lib"
+readme = "README.md"
 # build = "build.rs"
 
 [dependencies]

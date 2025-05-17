@@ -20,41 +20,37 @@ details info is in [here](https://github.com/Uliboooo/local_issues_lib/blob/main
 
 ### v1 ~
 
-* [ ] basic feats
-* [ ] `Users` and `author` for AI functions to be implemented in the future
+* [x] basic feats
+    * [x] manage project
+        * [x] open
+        * [x] save
+    * [x] edit project info
+        * [ ] rename
+    * [x] search issues and comments
+    * [x] manage issues
+        * [x] add issue
+        * [x] rename issue
+        * [x] edit due
+        * [x] open issue
+        * [x] close issue
+        * [x] remove issue
+    * [x] manage comments
+        * [x] add comment
+        * [x] remove comment
+        * [x] show comment
+        * [x] hide comment
+* [ ] `Users` and `author` for AI functions(v2~)
 * [ ] feat: Config
+* [x] Display by Options
 
 ### v2 ~
 
-* [ ] feat: save to md file. 
-* [ ] feat: AI team member by `Users`.
-* [ ] feat: Tags
+* [ ] feat: export to md file. 
+* [ ] feat: AI(LLM) team member as `User`. -> [details](https://github.com/Uliboooo/local_issues_lib/blob/main/articles/LLM_feature.md)
+* [ ] feat: Tags and priority
 * [ ] feat: `display_options mod` (Previously `Printer` struct).
+* [ ] feat: integrated git ctrl
 
 ## Project Structure
 
-maybe, this info is old...
-
-- Project
-  - name: `String`
-  - issues: `HashMap<u64, Issue>`
-    - Issue
-        - name: `String`
-        - messages: `Vec<Message>`
-            - Message
-                - message: `String`
-                - show: `bool`
-                - created_at: `DateTime<Local>`
-        - status
-            - Open
-            - Closed
-                - Resolved
-                - UnResolved
-        - created_at: `DateTime<Local>`
-        - updated_at: `DateTime<Local>`
-        - due_date: `DateTime<Local>`
-  - created_at: `DateTime<Local>`
-  - updated_at: `DateTime<Local>`
-  - project_path: `PathBuf`
-  - storage_path: `PathBuf`
-  - db_path: `PathBuf`
+- 

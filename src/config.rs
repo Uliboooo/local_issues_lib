@@ -57,7 +57,15 @@ impl Config {
         self.users = new_users;
     }
 
-    pub fn get_mut_users(&mut self) -> Option<Users> {
+    pub fn change_current_user<T: Into<User>>(&mut self, new_user: T) {
+        self.current_user = Some(new_user.into());
+    }
+
+    pub fn get_current_user(&self) -> Option<User> {
+        self.current_user.clone()
+    }
+
+    pub fn get_user_list(&mut self) -> Option<Users> {
         self.users.clone()
     }
 }
@@ -95,7 +103,7 @@ mod tests {
         user_list.add_user("name");
         config.over_write_user_list(Some(user_list));
 
-        let mut get_list_from_config = config.get_mut_users();
+        let mut get_list_from_config = config.get_user_list();
         if let Some(f) = get_list_from_config.as_mut() {
             f.add_user("name2")
         }

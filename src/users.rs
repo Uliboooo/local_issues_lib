@@ -1,3 +1,4 @@
+use derive_getters::Getters;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display};
 use uuid::Uuid;
@@ -5,7 +6,7 @@ use uuid::Uuid;
 // trait IsUser {}
 // impl IsUser for User {}
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct User {
     name: String,
     id: Uuid,
@@ -33,13 +34,7 @@ impl Display for User {
     }
 }
 
-// pub trait ManageUsers {
-//     fn add_user<T: Into<User>>(&mut self, name: T);
-//     fn rm_user(&mut self, id: Uuid);
-//     fn users_list(&self) -> Vec<String>;
-// }
-
-#[derive(Debug, Deserialize, Serialize, Default, Clone)]
+#[derive(Debug, Deserialize, Serialize, Default, Clone, Getters)]
 pub struct Users {
     list: HashMap<Uuid, User>,
 }
@@ -53,10 +48,10 @@ impl Users {
 }
 
 impl Users {
+    // TODO: return v for using chain method
     pub fn add_user<T: Into<User>>(&mut self, name: T) {
-        // let user = User::new(name);
         let user = name.into();
-        self.list.insert(user.id, user.clone());
+        self.list.insert(user.id, user);
     }
 
     pub fn rm_user(&mut self, id: Uuid) {
@@ -66,9 +61,7 @@ impl Users {
     pub fn users_list(&self) -> Vec<String> {
         self.list
             .iter()
-            //            u.0 is unnecessary because u.1 contains both id and name
-            //           & line break is unnecessary because u.1 contains it.
-            .map(|u| format!("{}", u.1))
+            .map(|u| format!("{}:{}", u.1, u.0))
             .collect::<Vec<String>>()
     }
 }

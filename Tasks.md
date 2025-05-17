@@ -1,7 +1,9 @@
 # Tasks
 
-- [ ] create Example codes
-- [ ] enhance a tests
+- [x] create Example codes
+- [ ] enhance example codes
+- [ ] rewrite tests
+- [ ] enhance tests
 - [ ] fix Sorting is not possible when use DisplayOptions
 
 ## basic feat:
