@@ -5,6 +5,8 @@ version = "0.14.2"
 authors = ["Uliboooo"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/Uliboooo/local_issues_lib"
+readme = "README.md"
 # build = "build.rs"
 
 [dependencies]
