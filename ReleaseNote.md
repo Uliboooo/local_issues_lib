@@ -1,6 +1,11 @@
 # Release note
 
-## 0.14.x('25-May-15)
+## 0.14.2('25-May-17)
+
+### enhance
+
+* enhance examples
+* enhance DisplayOptions(old: Printer)
 
 ### changes
 
@@ -13,6 +18,8 @@
 ### remove
 
 * remove felid `author: User` from `Project`
+
+**i may not have written some of the changes..**
 
 ## 0.13.0('25-May-13)
 
