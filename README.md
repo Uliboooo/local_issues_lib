@@ -41,7 +41,7 @@ details info is in [here](https://github.com/Uliboooo/local_issues_lib/blob/main
         * [x] hide comment
 * [x] `Users` and `author` for AI functions(v2~)
 * [x] feat: Config
-* [x] Display by Options
+* [ ] Display by Options
 * [ ] stabilization
 
 ### v2 ~

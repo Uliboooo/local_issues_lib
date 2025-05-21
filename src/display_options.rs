@@ -35,14 +35,17 @@ impl<'a> DisplayOptions<'a> {
         self.contain_closed_issues = contain_close_issues;
         self
     }
+    /// ⚠️ incomplete
     pub fn created_at(&mut self, up_to: Range) -> &mut Self {
         self.up_to_by_created_date = up_to;
         self
     }
+    /// ⚠️ incomplete
     pub fn updated_at(&mut self, up_to: Range) -> &mut Self {
         self.up_to_by_latest_update = up_to;
         self
     }
+    /// ⚠️ incomplete
     pub fn due_at(&mut self, up_to: Range) -> &mut Self {
         self.up_to_by_due = up_to;
         self

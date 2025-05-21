@@ -31,3 +31,4 @@
   - [x] hidden commit
   - [x] search commit position
   - [x] search commit
+- [ ] same name checker (then add num.)
