@@ -5,6 +5,7 @@
 - [ ] rewrite tests
 - [ ] enhance tests
 - [ ] fix Sorting is not possible when use DisplayOptions
+- [ ] add feat: search by title to DisplayOptions
 
 ## basic feat:
 

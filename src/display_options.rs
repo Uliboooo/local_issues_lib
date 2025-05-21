@@ -1,14 +1,14 @@
 use crate::{IssueTrait, Project, StatusT};
 use std::fmt::Display;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub enum Range {
     #[default]
     All,
     Max(u32),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub enum ShowLevel {
     Project,
     Issues,
@@ -16,7 +16,7 @@ pub enum ShowLevel {
     Comments,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct DisplayOptions<'a> {
     show_level: ShowLevel,
     contain_closed_issues: bool,

@@ -1,5 +1,9 @@
 # Release note
 
+## 0.16.1('25-May-21)
+
+### add `Clone` to `DisplayOptions`
+
 ## 0.15.0('25-May-17)
 
 ### add
