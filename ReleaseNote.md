@@ -1,5 +1,11 @@
 # Release note
 
+## 0.16.3('25-May-22)
+
+### changes
+
+* be public `storage mod`
+
 ## 0.16.1('25-May-21)
 
 ### add `Clone` to `DisplayOptions`
