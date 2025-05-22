@@ -43,8 +43,8 @@ impl Config {
             })
             .map_err(Error::DbError)
     }
-    pub fn save(&self) {
-        storage::save(self, get_config_path().unwrap()).unwrap();
+    pub fn save(&self) -> Result<(), Error> {
+        storage::save(self, get_config_path().unwrap()).map_err(Error::DbError)
     }
 }
 

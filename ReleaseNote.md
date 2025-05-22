@@ -1,5 +1,11 @@
 # Release note
 
+## 0.16.5('25-May-22)
+
+### changes
+
+* `config save()` now, return Result
+
 ## 0.16.4('25-May-22)
 
 ### add
