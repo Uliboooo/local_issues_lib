@@ -1,6 +1,6 @@
 pub mod config;
 pub mod display_options;
-mod storage;
+pub mod storage;
 mod users;
 
 use chrono::{DateTime, Local};
