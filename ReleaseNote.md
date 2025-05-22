@@ -1,5 +1,19 @@
 # Release note
 
+## 0.16.6('25-May-22)
+
+### add
+
+* add `enum ConfigPath`. this enum provide a choice of home directory or a specific path.
+
+### changes
+
+* `config sava(), load(), load_or_create()` now, require a save path as arg.
+
+### remove
+
+* `get_config_path()`
+
 ## 0.16.5('25-May-22)
 
 ### changes

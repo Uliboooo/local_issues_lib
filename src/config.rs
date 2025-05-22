@@ -3,6 +3,7 @@ use crate::{VERSION, storage};
 use derive_getters::Getters;
 use home::home_dir;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::{fmt::Display, path::PathBuf};
 
 #[derive(Debug)]
@@ -28,12 +29,12 @@ impl Config {
     }
 
     /// when config not found, return Error without creating.
-    pub fn load() -> Result<Self, Error> {
-        storage::load(get_config_path().unwrap(), true).map_err(Error::DbError)
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        storage::load(path.as_ref(), true).map_err(Error::DbError)
     }
 
-    pub fn load_or_create() -> Result<Self, Error> {
-        storage::load(get_config_path().unwrap(), true)
+    pub fn load_or_create<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        storage::load(path.as_ref(), true)
             .or_else(|e| {
                 if e.is_file_is_zero() {
                     Ok(Config::new())
@@ -43,8 +44,8 @@ impl Config {
             })
             .map_err(Error::DbError)
     }
-    pub fn save(&self) -> Result<(), Error> {
-        storage::save(self, get_config_path().unwrap()).map_err(Error::DbError)
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+        storage::save(self, path.as_ref()).map_err(Error::DbError)
     }
 }
 
@@ -77,15 +78,24 @@ impl Display for Config {
     }
 }
 
-fn get_config_path() -> Option<PathBuf> {
-    if cfg!(test) {
-        return Some(PathBuf::from("test/config_test/").join("config.json"));
+pub enum ConfigPath<P: AsRef<Path>> {
+    Home,
+    Custom(P),
+}
+
+impl<P: AsRef<Path>> ConfigPath<P> {
+    pub fn path(&self) -> Option<PathBuf> {
+        match self {
+            ConfigPath::Home => home_dir().map(|f| f.join(".local_issue")),
+            ConfigPath::Custom(p) => Some(p.as_ref().to_path_buf()),
+        }
     }
-    home_dir().map(|f| f.join(".local_issues").join("config.json"))
 }
 
 #[cfg(test)]
 mod tests {
+    use std::{fs, path::PathBuf};
+
     use super::Config;
     use crate::Users;
 
@@ -109,5 +119,11 @@ mod tests {
         }
 
         config.over_write_user_list(get_list_from_config);
+    }
+
+    #[test]
+    fn ge() {
+        let p = PathBuf::from("/Users/yuki/Downloads/a").join(".b");
+        fs::create_dir_all(p).unwrap();
     }
 }
