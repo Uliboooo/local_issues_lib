@@ -1,6 +1,6 @@
 pub mod config;
 pub mod display_options;
-mod storage;
+pub mod storage;
 mod users;
 
 use chrono::{DateTime, Local};
@@ -459,7 +459,7 @@ impl ProjectManager for Project {
         }
     }
 
-    /// return loaded `Project` if file(db) is empty, create new Project based on arguments.
+    /// return loaded `Project` if file(db) is empty, error
     fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
     where
         Self: Sized,
@@ -471,7 +471,6 @@ impl ProjectManager for Project {
     }
 
     /// if db.json not found, create new.
-    /// ⚠️recommend use it only file is guaranteed that db exists.
     fn open_or_create<P: AsRef<Path>, S: AsRef<str>>(
         project_path: P,
         name: S,

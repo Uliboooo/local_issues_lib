@@ -1,14 +1,14 @@
 use crate::{IssueTrait, Project, StatusT};
 use std::fmt::Display;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub enum Range {
     #[default]
     All,
     Max(u32),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub enum ShowLevel {
     Project,
     Issues,
@@ -16,7 +16,7 @@ pub enum ShowLevel {
     Comments,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct DisplayOptions<'a> {
     show_level: ShowLevel,
     contain_closed_issues: bool,
@@ -35,14 +35,17 @@ impl<'a> DisplayOptions<'a> {
         self.contain_closed_issues = contain_close_issues;
         self
     }
+    /// ⚠️ incomplete
     pub fn created_at(&mut self, up_to: Range) -> &mut Self {
         self.up_to_by_created_date = up_to;
         self
     }
+    /// ⚠️ incomplete
     pub fn updated_at(&mut self, up_to: Range) -> &mut Self {
         self.up_to_by_latest_update = up_to;
         self
     }
+    /// ⚠️ incomplete
     pub fn due_at(&mut self, up_to: Range) -> &mut Self {
         self.up_to_by_due = up_to;
         self

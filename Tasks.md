@@ -5,6 +5,7 @@
 - [ ] rewrite tests
 - [ ] enhance tests
 - [ ] fix Sorting is not possible when use DisplayOptions
+- [ ] add feat: search by title to DisplayOptions
 
 ## basic feat:
 
@@ -31,3 +32,4 @@
   - [x] hidden commit
   - [x] search commit position
   - [x] search commit
+- [ ] same name checker (then add num.)
