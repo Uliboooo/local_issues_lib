@@ -426,6 +426,11 @@ pub trait ProjectManager {
     fn update(&mut self);
 }
 
+/// create a new path added `.local_issue` dir path to arg: `path`.
+pub fn storage_path<P: AsRef<Path>>(path: &P) -> PathBuf {
+    path.as_ref().join(".local_issue")
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Project {
     project_name: String,
@@ -443,7 +448,7 @@ impl ProjectManager for Project {
     /// * create `storage_path` or `db_path` based on `project_path`.
     /// * and times info generated based on the current time.
     fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Self {
-        let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
+        let storage_path = storage_path(&project_path);
         let db_path = storage_path.join(DB_NAME);
 
         Self {
@@ -464,7 +469,7 @@ impl ProjectManager for Project {
     where
         Self: Sized,
     {
-        let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
+        let storage_path = storage_path(&project_path);
         let db_path = storage_path.join(DB_NAME);
 
         storage::load::<Project, _>(db_path, false).map_err(Error::DbError)
@@ -478,7 +483,7 @@ impl ProjectManager for Project {
     where
         Self: Sized,
     {
-        let storage_path = project_path.as_ref().to_path_buf().join(".local_issue");
+        let storage_path = storage_path(&project_path);
         let db_path = storage_path.join(DB_NAME);
 
         storage::load::<Project, _>(db_path, true)
@@ -734,5 +739,6 @@ impl Project {
 }
 
 pub fn db_path(work_path: PathBuf) -> PathBuf {
-    work_path.join(".local_issue").join(DB_NAME)
+    storage_path(&work_path).join(DB_NAME)
+    // work_path.join(".local_issue").join(DB_NAME)
 }

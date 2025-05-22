@@ -46,7 +46,7 @@ details info is in [here](https://github.com/Uliboooo/local_issues_lib/blob/main
 
 ### v2 ~
 
-* [ ] feat: export to md file. 
+* [ ] feat: export to md file. or sync md
 * [ ] feat: AI(LLM) team member as `User`. -> [details](https://github.com/Uliboooo/local_issues_lib/blob/main/articles/LLM_feature.md)
 * [ ] feat: Tags and priority
 * [ ] feat: `display_options mod` (Previously `Printer` struct).

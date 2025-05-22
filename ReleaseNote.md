@@ -1,5 +1,11 @@
 # Release note
 
+## 0.16.4('25-May-22)
+
+### add
+
+* add fn `storage_path(path: P)`: return added storage folder's path path
+
 ## 0.16.3('25-May-22)
 
 ### changes
