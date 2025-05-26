@@ -2,6 +2,10 @@
 
 **There is a high possibility that many breaking changes will occur before reaching version 1.0.**
 
+## Example
+
+here => [example code](https://github.com/Uliboooo/local_issues_lib/blob/main/examples/main.rs)
+
 ## notes
 
 tasks [here](https://github.com/Uliboooo/local_issues_lib/blob/main/Tasks.md)
