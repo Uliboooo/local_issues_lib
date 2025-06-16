@@ -1,5 +1,5 @@
 //! ## Example
-//! 
+//!
 //! [more](https://github.com/Uliboooo/local_issues_lib/blob/main/examples/main.rs)
 //!
 //! ```rust
@@ -45,15 +45,16 @@ pub mod storage;
 mod users;
 
 use chrono::{DateTime, Local};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     collections::HashMap,
     fmt::Display,
-    io,
+    io::{self, Read, Write},
     path::{Path, PathBuf},
 };
-// use users::ManageUsers;
 pub use users::{User, Users};
+
+use crate::storage::OpenSave;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const DB_NAME: &str = "db.json";
@@ -483,6 +484,43 @@ pub struct Project {
     storage_path: PathBuf,
     db_path: PathBuf,
     users: Users,
+}
+
+impl<T: Serialize + DeserializeOwned, P: AsRef<Path>> OpenSave<T, P> for Project {
+    fn open(path: P, create: bool) -> Result<T, storage::Error> {
+        if path.as_ref().parent().unwrap().exists() || create {
+            std::fs::create_dir_all(path.as_ref().parent().unwrap()).map_err(storage::Error::Io)?;
+        }
+
+        let mut f = std::fs::OpenOptions::new()
+            .read(true)
+            .create(create)
+            .truncate(false)
+            .write(true)
+            .open(path)
+            .map_err(storage::Error::Io)?;
+        let mut con = String::new();
+        f.read_to_string(&mut con).map_err(storage::Error::Io)?;
+
+        if con.is_empty() {
+            Err(storage::Error::FileIsZero)
+        } else {
+            serde_json::from_str(&con).map_err(storage::Error::Serde)
+        }
+    }
+
+    fn save(src: T, path: P) -> Result<(), storage::Error> {
+        let serialized_json = serde_json::to_string(&src).map_err(storage::Error::Serde)?;
+        let mut f = std::fs::OpenOptions::new()
+            .read(false)
+            .write(true)
+            .truncate(true)
+            .open(path)
+            .map_err(storage::Error::Io)?;
+
+        f.write_all(serialized_json.as_bytes())
+            .map_err(storage::Error::Io)
+    }
 }
 
 impl ProjectManager for Project {
