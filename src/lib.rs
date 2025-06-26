@@ -45,16 +45,16 @@ pub mod storage;
 mod users;
 
 use chrono::{DateTime, Local};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fmt::Display,
-    io::{self, Read, Write},
+    io::{self},
     path::{Path, PathBuf},
 };
 pub use users::{User, Users};
 
-use crate::storage::OpenSave;
+use crate::storage::Storage;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const DB_NAME: &str = "db.json";
@@ -454,9 +454,13 @@ impl Issue {
 
 pub trait ProjectManager {
     fn new<S: AsRef<str>, P: AsRef<Path>>(name: S, project_path: P) -> Self;
-    fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
-    where
-        Self: Sized;
+
+    fn update(&mut self);
+
+    #[deprecated(
+        since = "0.17.0",
+        note = "`storage::OpenSave` trait is easier to implement features."
+    )]
     fn open_or_create<P: AsRef<Path>, S: AsRef<str>>(
         project_path: P,
         name: S,
@@ -464,8 +468,6 @@ pub trait ProjectManager {
     ) -> Result<Self, Error>
     where
         Self: Sized;
-    fn save(&self) -> Result<(), Error>;
-    fn update(&mut self);
 }
 
 /// create a new path added `.local_issue` dir path to arg: `path`.
@@ -486,42 +488,7 @@ pub struct Project {
     users: Users,
 }
 
-impl<T: Serialize + DeserializeOwned, P: AsRef<Path>> OpenSave<T, P> for Project {
-    fn open(path: P, create: bool) -> Result<T, storage::Error> {
-        if path.as_ref().parent().unwrap().exists() || create {
-            std::fs::create_dir_all(path.as_ref().parent().unwrap()).map_err(storage::Error::Io)?;
-        }
-
-        let mut f = std::fs::OpenOptions::new()
-            .read(true)
-            .create(create)
-            .truncate(false)
-            .write(true)
-            .open(path)
-            .map_err(storage::Error::Io)?;
-        let mut con = String::new();
-        f.read_to_string(&mut con).map_err(storage::Error::Io)?;
-
-        if con.is_empty() {
-            Err(storage::Error::FileIsZero)
-        } else {
-            serde_json::from_str(&con).map_err(storage::Error::Serde)
-        }
-    }
-
-    fn save(src: T, path: P) -> Result<(), storage::Error> {
-        let serialized_json = serde_json::to_string(&src).map_err(storage::Error::Serde)?;
-        let mut f = std::fs::OpenOptions::new()
-            .read(false)
-            .write(true)
-            .truncate(true)
-            .open(path)
-            .map_err(storage::Error::Io)?;
-
-        f.write_all(serialized_json.as_bytes())
-            .map_err(storage::Error::Io)
-    }
-}
+impl<P: AsRef<Path>> Storage<P> for Project {}
 
 impl ProjectManager for Project {
     /// * create `storage_path` or `db_path` based on `project_path`.
@@ -543,16 +510,16 @@ impl ProjectManager for Project {
         }
     }
 
-    /// return loaded `Project` if file(db) is empty, error
-    fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
-    where
-        Self: Sized,
-    {
-        let storage_path = storage_path(&project_path);
-        let db_path = storage_path.join(DB_NAME);
+    // /// return loaded `Project` if file(db) is empty, error
+    // fn open<P: AsRef<Path>>(project_path: P) -> Result<Self, Error>
+    // where
+    //     Self: Sized,
+    // {
+    //     let storage_path = storage_path(&project_path);
+    //     let db_path = storage_path.join(DB_NAME);
 
-        storage::load::<Project, _>(db_path, false).map_err(Error::DbError)
-    }
+    //     storage::load::<Project, _>(db_path, false).map_err(Error::DbError)
+    // }
 
     /// if db.json not found, create new.
     fn open_or_create<P: AsRef<Path>, S: AsRef<str>>(
@@ -577,10 +544,10 @@ impl ProjectManager for Project {
             .map_err(Error::DbError)
     }
 
-    /// save to db based on a path of Self
-    fn save(&self) -> Result<(), Error> {
-        storage::save(self, &self.db_path).map_err(Error::DbError)
-    }
+    // /// save to db based on a path of Self
+    // fn save(&self) -> Result<(), Error> {
+    //     storage::save(self, &self.db_path).map_err(Error::DbError)
+    // }
 
     fn update(&mut self) {
         self.updated_at = Local::now();

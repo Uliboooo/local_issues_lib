@@ -1,4 +1,16 @@
-# Release note
+# Change Log
+
+## 0.17.0('25-Jun-16)
+
+### changes
+
+* now change `open(path: P, create: bool)` to `open(path: P)` in `OpenSave` trait.
+
+## 0.16.7('25-Jun-16)
+
+### add
+
+* add pub trait `OpenSave` like a storage::open and save function.
 
 ## 0.16.6('25-May-22)
 

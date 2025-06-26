@@ -160,6 +160,7 @@ mod tests {
     use crate::{
         Error, Project, ProjectManager,
         display_options::{DisplayOptions, ShowLevel},
+        storage::Storage,
     };
 
     #[test]
@@ -180,7 +181,8 @@ mod tests {
                 // .contain_close_issues(false)
                 .content(&pr)
         );
-        pr.save()?;
+        let result = pr.save("path", false);
+        assert!(result.is_ok());
         Ok(())
     }
 }
