@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["DeValue"],"fn":["from_slice","from_str"],"struct":["DeArray","DeFloat","DeInteger","Deserializer","Error","ValueDeserializer"],"type":["DeString","DeTable"]};

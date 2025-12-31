@@ -210,6 +210,33 @@ impl Issue {
             .collect::<Vec<_>>();
         !res.is_empty()
     }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn status(&self) -> &Status {
+        &self.status
+    }
+
+    pub fn created_by(&self) -> &User {
+        &self.created_by
+    }
+
+    pub fn created_at(&self) -> &chrono::DateTime<chrono::Local> {
+        &self.created_at
+    }
+    pub fn updated_at(&self) -> &chrono::DateTime<chrono::Local> {
+        &self.updated_at
+    }
+
+    pub fn comments(&self) -> &Vec<Comment> {
+        &self.comment
+    }
+
+    pub fn from_index(&self) -> usize {
+        self.from
+    }
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
