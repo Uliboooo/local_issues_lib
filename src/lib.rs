@@ -61,6 +61,9 @@ impl Issues {
         if res.is_empty() { None } else { Some(res) }
     }
 
+    /// Finds issues updated within the given time range.
+    ///
+    /// Returns `Some(Vec<&mut Issue>)` if matches are found, otherwise `None`.
     pub fn find_from_updated_time(
         &mut self,
         st: chrono::DateTime<chrono::Local>,
@@ -74,6 +77,9 @@ impl Issues {
         if res.is_empty() { None } else { Some(res) }
     }
 
+    /// Finds issues created within the given time range.
+    ///
+    /// Returns `Some(Vec<&mut Issue>)` if matches are found, otherwise `None`.
     pub fn find_from_created_time(
         &mut self,
         st: chrono::DateTime<chrono::Local>,
@@ -87,6 +93,9 @@ impl Issues {
         if res.is_empty() { None } else { Some(res) }
     }
 
+    /// Finds issues containing a comment with the given text.
+    ///
+    /// Returns `Some(Vec<&mut Issue>)` if matches are found, otherwise `None`.
     pub fn find_from_comments<T: AsRef<str>>(&mut self, s: T) -> Option<Vec<&mut Issue>> {
         let res = self
             .list
@@ -119,6 +128,7 @@ impl Issues {
         Some(self.add_new_issue(forked))
     }
 
+    /// Returns a list of all registered labels.
     pub fn get_registered_labels(&self) -> Vec<String> {
         self.labels.clone()
     }
@@ -157,10 +167,12 @@ impl Issue {
         }
     }
 
+    /// Returns a list of labels associated with this issue.
     pub fn get_labels(&self) -> Vec<String> {
         self.labels.clone()
     }
 
+    /// Updates the `updated_at` timestamp to the current local time.
     pub fn update(&mut self) {
         self.updated_at = chrono::Local::now();
     }
@@ -189,6 +201,7 @@ impl Issue {
         self.update();
     }
 
+    /// Checks if any comment in the issue contains the given string.
     pub fn contains_comment<T: AsRef<str>>(&self, s: T) -> bool {
         let res = self
             .comment
