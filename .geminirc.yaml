@@ -1,0 +1,12 @@
+# config.yaml
+permissions:
+  # AIの「編集ツール」を直接許可
+  allow:
+    - tool: "edit_file"   # ファイル編集ツール
+    - tool: "write_file"  # 新規作成ツール
+  
+  # その他の操作（読み取りツールやシェルコマンド）はすべて承認を求める
+  ask:
+    - tool: "read_file"   # ファイル読み取り (cat相当)
+    - tool: "list_dir"    # ディレクトリ表示 (ls相当)
+    - command: "*"        # すべてのシェルコマンド実行
