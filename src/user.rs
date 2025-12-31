@@ -1,3 +1,5 @@
+//! This module provides functionality for managing users in the local issues system.
+
 use serde::{Deserialize, Serialize};
 
 /// A collection of users.

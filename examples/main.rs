@@ -1,3 +1,5 @@
+//! An example demonstrating how to use the `local_issues_lib` crate.
+
 use local_issues_lib::{Comment, Issue, Issues, user::User};
 
 fn main() {

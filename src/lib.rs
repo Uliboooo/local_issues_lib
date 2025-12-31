@@ -1,7 +1,10 @@
+//! This crate provides a simple library for managing local issues and users.
+
 use serde::{Deserialize, Serialize};
 
 use crate::user::User;
 
+/// Module for user-related functionality.
 pub mod user;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -211,29 +214,37 @@ impl Issue {
         !res.is_empty()
     }
 
+    /// Returns the name of the issue.
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Returns the current status of the issue.
     pub fn status(&self) -> &Status {
         &self.status
     }
 
+    /// Returns the user who created the issue.
     pub fn created_by(&self) -> &User {
         &self.created_by
     }
 
+    /// Returns the timestamp when the issue was created.
     pub fn created_at(&self) -> &chrono::DateTime<chrono::Local> {
         &self.created_at
     }
+
+    /// Returns the timestamp when the issue was last updated.
     pub fn updated_at(&self) -> &chrono::DateTime<chrono::Local> {
         &self.updated_at
     }
 
+    /// Returns a reference to the list of comments on this issue.
     pub fn comments(&self) -> &Vec<Comment> {
         &self.comment
     }
 
+    /// Returns the index of the issue this one was forked from, if any.
     pub fn from_index(&self) -> usize {
         self.from
     }
@@ -271,5 +282,15 @@ impl Comment {
             date: chrono::Local::now(),
             user,
         }
+    }
+
+    /// Returns the user who wrote the comment.
+    pub fn author(&self) -> &User {
+        &self.user
+    }
+
+    /// Returns the content of the comment.
+    pub fn text(&self) -> String {
+        self.content.clone()
     }
 }
