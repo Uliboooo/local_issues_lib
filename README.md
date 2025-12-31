@@ -17,7 +17,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-local_issues_lib = "0.16.3"
+local_issues_lib = "0.17.0"
 ```
 
 <!--DON'T TOUCH THIS GEMINI!!!-->
