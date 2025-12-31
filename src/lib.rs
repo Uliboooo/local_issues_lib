@@ -17,12 +17,15 @@ impl Issues {
     ///
     /// This initializes the collection with a "root" issue.
     pub fn new() -> Self {
+        let now = chrono::Local::now();
         let root_issue = Issue {
             name: "root".to_string(),
             status: Status::CloseAsCmp,
             comment: Vec::new(),
             created_by: User::new("root", "root"),
             from: usize::MAX,
+            created_at: now,
+            updated_at: now,
         };
         Self {
             list: vec![root_issue],
@@ -51,6 +54,41 @@ impl Issues {
             .list
             .iter_mut()
             .filter(|f| f.name.contains(s.as_ref()))
+            .collect::<Vec<_>>();
+        if res.is_empty() { None } else { Some(res) }
+    }
+
+    pub fn find_from_updated_time(
+        &mut self,
+        st: chrono::DateTime<chrono::Local>,
+        ed: chrono::DateTime<chrono::Local>,
+    ) -> Option<Vec<&mut Issue>> {
+        let res = self
+            .list
+            .iter_mut()
+            .filter(|f| (st..=ed).contains(&f.updated_at))
+            .collect::<Vec<_>>();
+        if res.is_empty() { None } else { Some(res) }
+    }
+
+    pub fn find_from_created_time(
+        &mut self,
+        st: chrono::DateTime<chrono::Local>,
+        ed: chrono::DateTime<chrono::Local>,
+    ) -> Option<Vec<&mut Issue>> {
+        let res = self
+            .list
+            .iter_mut()
+            .filter(|f| (st..=ed).contains(&f.created_at))
+            .collect::<Vec<_>>();
+        if res.is_empty() { None } else { Some(res) }
+    }
+
+    pub fn find_from_comments<T: AsRef<str>>(&mut self, s: T) -> Option<Vec<&mut Issue>> {
+        let res = self
+            .list
+            .iter_mut()
+            .filter(|f| f.contains_comment(s.as_ref()))
             .collect::<Vec<_>>();
         if res.is_empty() { None } else { Some(res) }
     }
@@ -86,39 +124,61 @@ pub struct Issue {
     status: Status,
     comment: Vec<Comment>,
     created_by: User,
+    created_at: chrono::DateTime<chrono::Local>,
+    updated_at: chrono::DateTime<chrono::Local>,
     from: usize,
 }
 
 impl Issue {
     /// Creates a new issue with a name and the user who created it.
     pub fn new<T: AsRef<str>>(name: T, user: User) -> Self {
+        let now = chrono::Local::now();
         Self {
             name: name.as_ref().to_string(),
             status: Status::default(),
             comment: Vec::new(),
             created_by: user,
             from: 0,
+            created_at: now,
+            updated_at: now,
         }
+    }
+
+    pub fn update(&mut self) {
+        self.updated_at = chrono::Local::now();
     }
 
     /// Closes the issue as completed.
     pub fn close_as_cmp(&mut self) {
         self.status = Status::CloseAsCmp;
+        self.update();
     }
 
     /// Closes the issue as not planned.
     pub fn close_as_not_planed(&mut self) {
         self.status = Status::CloseAsNotPlaned;
+        self.update();
     }
 
     /// Closes the issue as forked.
     pub fn close_as_forked(&mut self) {
         self.status = Status::CloseAsForked;
+        self.update();
     }
 
     /// Adds a comment entry to the issue.
     pub fn comment(&mut self, new_comment: Comment) {
         self.comment.push(new_comment);
+        self.update();
+    }
+
+    pub fn contains_comment<T: AsRef<str>>(&self, s: T) -> bool {
+        let res = self
+            .comment
+            .iter()
+            .filter(|f| f.content.contains(s.as_ref()))
+            .collect::<Vec<_>>();
+        !res.is_empty()
     }
 }
 

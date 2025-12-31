@@ -25,11 +25,13 @@ impl Users {
     }
 
     /// Gets a user by their index in the list.
+    /// Deprecated: Use `find_by_id` instead for stable access.
     pub fn get(&self, index: i32) -> Option<&User> {
         self.list.get(index as usize)
     }
 
     /// Gets a mutable reference to a user by their index in the list.
+    /// Deprecated: Use `find_by_id` or similar instead.
     pub fn get_mut(&mut self, index: i32) -> Option<&mut User> {
         self.list.get_mut(index as usize)
     }
@@ -48,7 +50,7 @@ impl Users {
 impl easy_storage::Storeable for Users {}
 
 /// Represents a user in the system.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct User {
     name: String,
     email: String,
@@ -60,7 +62,7 @@ impl easy_storage::Storeable for User {}
 impl User {
     /// Creates a new user with the given name and email.
     ///
-    /// The user is active by default.
+    /// The user is active by default and assigned a random UUID.
     pub fn new<T: AsRef<str>, U: AsRef<str>>(name: T, email: U) -> Self {
         Self {
             name: name.as_ref().to_string(),
