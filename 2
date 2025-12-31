@@ -14,7 +14,7 @@ impl Issues {
             status: Status::CloseAsCmp,
             log: Vec::new(),
             created_by: User::new("root", "root"),
-            from: usize::MAX,
+            from: 0,
         };
         Self {
             list: vec![root_issue],
@@ -117,4 +117,8 @@ impl Log {
             user,
         }
     }
+}
+
+pub fn add(x: i32, y: i32) -> i32 {
+    x + y
 }

@@ -23,7 +23,7 @@ fn main() {
     let got_lst = issues.get_list();
     println!("got list: {got_lst:?}\n\n");
 
-    let got_i1 = issues.get(0).unwrap();
+    let got_i1 = issues.get_mut(0).unwrap();
     got_i1.close_as_cmp();
 
     // let got_lst = issues.get_list();
