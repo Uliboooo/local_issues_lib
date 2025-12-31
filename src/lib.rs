@@ -1,12 +1,16 @@
+use serde::{Deserialize, Serialize};
+
 use crate::user::User;
 
 pub mod user;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// A collection of issues.
 pub struct Issues {
     list: Vec<Issue>,
 }
+
+impl easy_storage::Storeable for Issues {}
 
 impl Issues {
     /// Creates a new `Issues` collection.
@@ -75,7 +79,7 @@ impl Issues {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Represents a single issue.
 pub struct Issue {
     name: String,
@@ -118,7 +122,7 @@ impl Issue {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// Represents the status of an issue.
 pub enum Status {
     #[default]
@@ -132,7 +136,7 @@ pub enum Status {
     CloseAsForked,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Represents a comment entry associated with an issue.
 pub struct Comment {
     content: String,

@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 /// A collection of users.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Users {
     list: Vec<User>,
 }
@@ -43,13 +45,17 @@ impl Users {
     }
 }
 
+impl easy_storage::Storeable for Users {}
+
 /// Represents a user in the system.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct User {
     name: String,
     email: String,
     deactivate: bool,
 }
+
+impl easy_storage::Storeable for User {}
 
 impl User {
     /// Creates a new user with the given name and email.

@@ -1,5 +1,5 @@
 use local_issues_lib::{
-    self, Issue, Issues, Log,
+    self, Comment, Issue, Issues,
     user::{User, Users},
 };
 
@@ -29,9 +29,9 @@ fn main() {
     // let got_lst = issues.get_list();
     // println!("got list when cmped i1: {got_lst:?}");
 
-    let new_log = Log::new("fix", du.clone());
+    let new_comment = Comment::new("fix", du.clone());
 
-    got_i1.log(new_log);
+    got_i1.comment(new_comment);
 
     println!("{:?}", issues.get_list())
 }

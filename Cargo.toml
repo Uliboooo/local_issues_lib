@@ -17,4 +17,5 @@ serde_json = "1.0.140"
 home = "0.5.11"
 uuid = { version = "1.16.0", features = ["serde", "v4"] }
 derive-getters = "0.5.0"
+easy_storage = "0.4.1"
 
