@@ -77,6 +77,11 @@ impl User {
     pub fn deactivate(&mut self) {
         self.deactivate = true;
     }
+
+    /// Returns name
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
 }
 
 impl Clone for User {
