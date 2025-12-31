@@ -12,7 +12,7 @@ This document outlines the features that are currently missing or need improveme
   - **Description**: Currently, issues and users are accessed via their index in a `Vec`. This is unstable if items are reordered or removed.
   - **Task**: Integrate the `uuid` crate (already in dependencies) to assign unique IDs to `Issue` and `User` entities. Replace index-based lookups with ID-based lookups.
 
-- [ ] **Issue Metadata**
+- [x] **Issue Metadata**
   - ~~**Description**: Issues are currently limited to a name/title and comments.~~
   - **Task**: Add the following fields to the `Issue` struct:
     - ~~`description`: String (Markdown support)~~
@@ -41,8 +41,8 @@ This document outlines the features that are currently missing or need improveme
 
 ## Low Priority
 
-- [ ] **Milestones**
-  - **Description**: Grouping issues into milestones/versions.
+~~- [ ] **Milestones**
+  - **Description**: Grouping issues into milestones/versions.~~
 
 - [x] **Comments System**
   - **Status**: `Log` has been renamed to `Comment` and is integrated into `Issue`.

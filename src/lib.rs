@@ -8,6 +8,7 @@ pub mod user;
 /// A collection of issues.
 pub struct Issues {
     list: Vec<Issue>,
+    labels: Vec<String>,
 }
 
 impl easy_storage::Storeable for Issues {}
@@ -26,9 +27,11 @@ impl Issues {
             from: usize::MAX,
             created_at: now,
             updated_at: now,
+            labels: Vec::new(),
         };
         Self {
             list: vec![root_issue],
+            labels: vec!["Bug".to_string(), "Enhance".to_string()],
         }
     }
 
@@ -115,6 +118,10 @@ impl Issues {
         self.get_mut(from).unwrap().status = Status::CloseAsForked;
         Some(self.add_new_issue(forked))
     }
+
+    pub fn get_registered_labels(&self) -> Vec<String> {
+        self.labels.clone()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -126,13 +133,18 @@ pub struct Issue {
     created_by: User,
     created_at: chrono::DateTime<chrono::Local>,
     updated_at: chrono::DateTime<chrono::Local>,
+    labels: Vec<String>,
     from: usize,
 }
 
 impl Issue {
     /// Creates a new issue with a name and the user who created it.
-    pub fn new<T: AsRef<str>>(name: T, user: User) -> Self {
+    pub fn new<T: AsRef<str>, U: AsRef<str>>(name: T, user: User, labels: Vec<U>) -> Self {
         let now = chrono::Local::now();
+        let labels = labels
+            .iter()
+            .map(|f| f.as_ref().to_string())
+            .collect::<Vec<_>>();
         Self {
             name: name.as_ref().to_string(),
             status: Status::default(),
@@ -141,7 +153,12 @@ impl Issue {
             from: 0,
             created_at: now,
             updated_at: now,
+            labels,
         }
+    }
+
+    pub fn get_labels(&self) -> Vec<String> {
+        self.labels.clone()
     }
 
     pub fn update(&mut self) {
