@@ -293,4 +293,9 @@ impl Comment {
     pub fn text(&self) -> String {
         self.content.clone()
     }
+
+    /// Returns the datetime of the comment
+    pub fn date(&self) -> chrono::DateTime<chrono::Local> {
+        self.date
+    }
 }
