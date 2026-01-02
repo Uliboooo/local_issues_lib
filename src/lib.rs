@@ -127,6 +127,7 @@ impl Issues {
     pub fn fork(&mut self, from: usize) -> Option<usize> {
         let mut forked = self.get(from)?.clone();
         forked.from = from;
+        forked.status = Status::Open;
         self.get_mut(from).unwrap().status = Status::CloseAsForked;
         Some(self.add_new_issue(forked))
     }
