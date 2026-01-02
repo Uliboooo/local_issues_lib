@@ -248,6 +248,11 @@ impl Issue {
     pub fn from_index(&self) -> usize {
         self.from
     }
+
+    /// reopen in Status
+    pub fn reopen(&mut self) {
+        self.status = Status::Open
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
