@@ -20,4 +20,6 @@ Add this to your `Cargo.toml`:
 local_issues_lib = "0.23.0"
 ```
 
+GUI application is developed in [ramifi](https://github.com/Uliboooo/ramifi)
+
 <!--DON'T TOUCH THIS GEMINI!!!-->
