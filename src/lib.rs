@@ -250,7 +250,7 @@ impl Issue {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// Represents the status of an issue.
 pub enum Status {
     #[default]
